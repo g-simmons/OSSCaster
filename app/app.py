@@ -1,6 +1,7 @@
 import base64
 import datetime
 import io
+from json import load
 
 import dash
 from dash.dependencies import Input, Output, State
@@ -8,6 +9,7 @@ from dash import dcc
 import dash_bootstrap_components as dbc
 from dash import html
 from dash import dash_table
+from keras.models import load_model
 
 import pandas as pd
 
@@ -15,6 +17,10 @@ import pandas as pd
 external_stylesheets = [dbc.themes.BOOTSTRAP]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+# MODEL_PATH = "./model.h5"
+
+# model = load_model(MODEL_PATH)
 
 app.layout = html.Div(
     dbc.Row(
@@ -48,7 +54,15 @@ app.layout = html.Div(
                 ],
                 width=4,
             ),
-            dbc.Col([html.P(["Something"])], width=8),
+            dbc.Col([
+                html.P(["Something"]),
+                html.Div([
+                    dcc.Graph(
+                        id='crossfilter-indicator-scatter',
+                        hoverData={'points': [{'customdata': 'Japan'}]}
+                    )],
+                style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),],
+            width=8),
         ]
     ),
 )
