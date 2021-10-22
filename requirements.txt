@@ -1,3 +1,7 @@
 wget
 jupyter
 tqdm
+keras
+matplotlib
+sklearn
+lime
