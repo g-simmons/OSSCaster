@@ -7,3 +7,4 @@ sklearn
 lime
 dash
 dash_bootstrap_components
+tensorflow
