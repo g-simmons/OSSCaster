@@ -20,7 +20,7 @@ def main():
     if not os.path.exists(OUT_PATH):
         print("\nextracting Sustainability_Analysis...")
         with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
-            zip_ref.extractall(OUT_PATH)
+            zip_ref.extractall(ROOT)
     else:
         print("\nextracted Sustainability_Analysis already exists")
 
