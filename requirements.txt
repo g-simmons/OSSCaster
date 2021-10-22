@@ -5,3 +5,5 @@ keras
 matplotlib
 sklearn
 lime
+dash
+dash_bootstrap_components
