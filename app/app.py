@@ -63,20 +63,30 @@ app.layout = html.Div(
             ),
             dbc.Col([
                 html.P(["Project History"]),
-                html.Div([
+                html.Div(
+                    [
                     dcc.Graph(
-                        id='crossfilter-indicator-scatter',
+                        id='lineplot',
                         style={'width': '100%',}
-                    )],
-                style={
+                    )
+                    ],
+                    style={
                     # 'width': '49%',
-                    'display': 'inline-block', 'padding': '0 20'}),
-                    html.Div(
-                        id="output-data-upload",
-                        style={
-                            "overflow": "scroll",
-                        },
-                    ),],
+                    'display': 'inline-block', 'padding': '0 20'}
+                    ),
+                    html.Div([
+                        html.Div(id="filename"),
+                        html.Div(id="upload-time"),
+                        dash_table.DataTable(
+                            editable=True,
+                            id="table"
+                        )
+                    ],
+                    style={
+                        "overflow": "scroll",
+                    },
+                    )
+                ],
             width=8),
         ]
     ),
@@ -85,7 +95,6 @@ app.layout = html.Div(
 
 def parse_contents(contents, filename, date):
     content_type, content_string = contents.split(",")
-
     decoded = base64.b64decode(content_string)
     try:
         if "csv" in filename:
@@ -101,62 +110,54 @@ def parse_contents(contents, filename, date):
         print(e)
         return html.Div(["There was an error processing this file."])
 
-    return (df, html.Div(
-        [
-            html.H5(filename),
-            html.H6(datetime.datetime.fromtimestamp(date)),
-            dash_table.DataTable(
-                data=df.to_dict("records"),
-                columns=[{"name": i, "id": i} for i in df.columns],
-            ),
-        ]
-    ))
+    return html.H5(filename), html.H6(datetime.datetime.fromtimestamp(date),id=""), df
 
+def _table_data_to_df(data, columns):
+    df = pd.DataFrame(data, columns=[c['name'] for c in columns])
+    return df
 
 @app.callback(
-    Output("output-data-upload", "children"),
-    Output('crossfilter-indicator-scatter', "figure"),
+    Output("table", "data"),
+    Output("table", "columns"),
+    Output("filename", "children"),
+    Output("upload-time", "children"),
     Input("upload-data", "contents"),
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
 )
 def update_output(list_of_contents, list_of_names, list_of_dates):
-    children = None
-    data = None
+    data = filename = date = columns = None
+
+    if list_of_contents is not None:
+        filename, date, df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
+
+        if CSV_COLUMNS_AS_MONTHS:
+            print("transposing")
+
+        data=df.to_dict("records")
+        columns=[{"name": i, "id": i} for i in df.columns]
+
+    return data, columns, filename, date
+
+
+@app.callback(
+    Output('lineplot', "figure"),
+    Input('table', 'data'),
+    Input('table', 'columns'))
+def update_figure(data, columns):
     fig = make_subplots(rows=2, cols=1, specs=[[{}], [{}]],
                         shared_xaxes=True, shared_yaxes=True,
                         vertical_spacing=0.01)
     fig.update_yaxes(title_text="Success Probability", row=1, col=1)
     fig.update_yaxes(title_text="Project History", row=2, col=1)
     fig.update_xaxes(title_text="Month", row=[1,2], col=1)
-    if list_of_contents is not None:
-        children = [
-            parse_contents(c, n, d)
-            for c, n, d in zip(list_of_contents, list_of_names, list_of_dates)
-        ]
-        data, children = children[0]
 
-        if CSV_COLUMNS_AS_MONTHS:
-            print("transposing")
-            data = data.transpose()
-
-
+    if data is not None and columns is not None:
+        data = _table_data_to_df(data, columns)
 
         preds = get_model_predictions(data)
 
-        colors = {"graphBackground": "#F5F5F5", "background": "#ffffff", "text": "#000000"}
-        # fig = go.Figure(
-        #     data=[
-        #         go.Scatter(
-        #             x=data.index,
-        #             y=data[col],
-        #             mode='lines+markers',name=col) for col in data.columns
-        #         ],
-        #     # layout=go.Layout(
-        #     #     plot_bgcolor=colors["graphBackground"],
-        #     #     paper_bgcolor=colors["graphBackground"]
-        #     # )
-        # )
+        # colors = {"graphBackground": "#F5F5F5", "background": "#ffffff", "text": "#000000"}
         fig.add_traces([
                 go.Scatter(
                     x=data.index,
@@ -169,7 +170,10 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
                     y=preds,
                     mode='lines+markers',name="success_probability")
                 ],rows=1,cols=1)
-    return children, fig
+
+    return fig
+
+
 
 
 if __name__ == "__main__":
