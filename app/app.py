@@ -28,11 +28,10 @@ CSV_COLUMNS_AS_MONTHS = True
 # model = load_model(MODEL_PATH)
 
 def get_model_predictions(data: pd.DataFrame):
-    return [0.8]*len(data)
+    return [0.8]*len(data), [0.9]*len(data), [0.7]*len(data),
 
 def get_explainability_results(data: pd.DataFrame):
     pass
-
 
 app.layout = html.Div(
     dbc.Row(
@@ -125,7 +124,7 @@ def _table_data_to_df(data, columns):
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
 )
-def update_output(list_of_contents, list_of_names, list_of_dates):
+def update_table(list_of_contents, list_of_names, list_of_dates):
     data = filename = date = columns = None
 
     if list_of_contents is not None:
@@ -155,22 +154,37 @@ def update_figure(data, columns):
     if data is not None and columns is not None:
         data = _table_data_to_df(data, columns)
 
-        preds = get_model_predictions(data)
+        preds, preds_upper, preds_lower = get_model_predictions(data)
+        x = data.index.tolist()
 
         # colors = {"graphBackground": "#F5F5F5", "background": "#ffffff", "text": "#000000"}
         fig.add_traces([
                 go.Scatter(
-                    x=data.index,
+                    x=x,
                     y=data[col],
                     mode='lines+markers',name=col) for col in data.columns
                 ],rows=2,cols=1)
         fig.add_traces([
                 go.Scatter(
-                    x=data.index,
+                    x=x,
                     y=preds,
                     mode='lines+markers',name="success_probability")
-                ],rows=1,cols=1)
+                ],
+                rows=1,cols=1)
 
+        fig.add_trace(
+            go.Scatter(
+                x=x+x[::-1], # x, then x reversed
+                y=preds_upper+preds_lower[::-1], # upper, then lower reversed
+                fill='toself',
+                fillcolor='rgba(0,100,80,0.2)',
+                line=dict(color='rgba(255,255,255,0)'),
+                hoverinfo="skip",
+                showlegend=False
+            ),
+            row=1,
+            col=1,
+        )
     return fig
 
 
