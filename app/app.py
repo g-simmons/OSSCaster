@@ -129,7 +129,8 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
                 go.Scatter(
                     x=data.index,
                     y=data[col],
-                    mode='lines+markers') for col in data.columns
+                    mode='lines+markers',name=col) for col in data.columns
+
                 ],
             layout=go.Layout(
                 plot_bgcolor=colors["graphBackground"],
