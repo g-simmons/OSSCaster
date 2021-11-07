@@ -12,6 +12,7 @@ from dash import html
 from dash import dash_table
 from keras.models import load_model
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 
 import pandas as pd
 
@@ -25,6 +26,13 @@ CSV_COLUMNS_AS_MONTHS = True
 # MODEL_PATH = "./model.h5"
 
 # model = load_model(MODEL_PATH)
+
+def get_model_predictions(data: pd.DataFrame):
+    return [0.8]*len(data)
+
+def get_explainability_results(data: pd.DataFrame):
+    pass
+
 
 app.layout = html.Div(
     dbc.Row(
@@ -108,8 +116,12 @@ def parse_contents(contents, filename, date):
 def update_output(list_of_contents, list_of_names, list_of_dates):
     children = None
     data = None
-    fig = go.Figure(
-    )
+    fig = make_subplots(rows=2, cols=1, specs=[[{}], [{}]],
+                        shared_xaxes=True, shared_yaxes=True,
+                        vertical_spacing=0.01)
+    fig.update_yaxes(title_text="Success Probability", row=1, col=1)
+    fig.update_yaxes(title_text="Project History", row=2, col=1)
+    fig.update_xaxes(title_text="Month", row=[1,2], col=1)
     if list_of_contents is not None:
         children = [
             parse_contents(c, n, d)
@@ -123,22 +135,33 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
 
         data = data.dropna(how='all')
 
+        preds = get_model_predictions(data)
+
         colors = {"graphBackground": "#F5F5F5", "background": "#ffffff", "text": "#000000"}
-        fig = go.Figure(
-            data=[
+        # fig = go.Figure(
+        #     data=[
+        #         go.Scatter(
+        #             x=data.index,
+        #             y=data[col],
+        #             mode='lines+markers',name=col) for col in data.columns
+        #         ],
+        #     # layout=go.Layout(
+        #     #     plot_bgcolor=colors["graphBackground"],
+        #     #     paper_bgcolor=colors["graphBackground"]
+        #     # )
+        # )
+        fig.add_traces([
                 go.Scatter(
                     x=data.index,
                     y=data[col],
                     mode='lines+markers',name=col) for col in data.columns
-
-                ],
-            layout=go.Layout(
-                plot_bgcolor=colors["graphBackground"],
-                paper_bgcolor=colors["graphBackground"]
-            )
-        )
-
-
+                ],rows=2,cols=1)
+        fig.add_traces([
+                go.Scatter(
+                    x=data.index,
+                    y=preds,
+                    mode='lines+markers',name="success_probability")
+                ],rows=1,cols=1)
     return children, fig
 
 
