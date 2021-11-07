@@ -57,22 +57,26 @@ app.layout = html.Div(
                         # Allow multiple files to be uploaded
                         multiple=True,
                     ),
-                    html.Div(
-                        id="output-data-upload",
-                        style={
-                            "overflow": "scroll",
-                        },
-                    ),
+
                 ],
-                width=4,
+                width=2,
             ),
             dbc.Col([
                 html.P(["Project History"]),
                 html.Div([
                     dcc.Graph(
                         id='crossfilter-indicator-scatter',
+                        style={'width': '100%',}
                     )],
-                style={'width': '49%', 'display': 'inline-block', 'padding': '0 20'}),],
+                style={
+                    # 'width': '49%',
+                    'display': 'inline-block', 'padding': '0 20'}),
+                    html.Div(
+                        id="output-data-upload",
+                        style={
+                            "overflow": "scroll",
+                        },
+                    ),],
             width=8),
         ]
     ),
@@ -90,6 +94,9 @@ def parse_contents(contents, filename, date):
         elif "xls" in filename:
             # Assume that the user uploaded an excel file
             df = pd.read_excel(io.BytesIO(decoded),index_col=0)
+
+        df = df.dropna(how='all',axis=1)
+        df = df.round(2)
     except Exception as e:
         print(e)
         return html.Div(["There was an error processing this file."])
@@ -133,7 +140,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
             print("transposing")
             data = data.transpose()
 
-        data = data.dropna(how='all')
+
 
         preds = get_model_predictions(data)
 
