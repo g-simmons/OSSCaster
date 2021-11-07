@@ -98,10 +98,10 @@ def parse_contents(contents, filename, date):
     try:
         if "csv" in filename:
             # Assume that the user uploaded a CSV file
-            df = pd.read_csv(io.StringIO(decoded.decode("utf-8")),index_col=0)
+            df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
         elif "xls" in filename:
             # Assume that the user uploaded an excel file
-            df = pd.read_excel(io.BytesIO(decoded),index_col=0)
+            df = pd.read_excel(io.BytesIO(decoded))
 
         df = df.dropna(how='all',axis=1)
         df = df.round(2)
@@ -113,6 +113,8 @@ def parse_contents(contents, filename, date):
 
 def _table_data_to_df(data, columns):
     df = pd.DataFrame(data, columns=[c['name'] for c in columns])
+    df = df.set_index(df.columns[0])
+    df = df.transpose()
     return df
 
 @app.callback(
@@ -129,10 +131,6 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
 
     if list_of_contents is not None:
         filename, date, df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
-
-        if CSV_COLUMNS_AS_MONTHS:
-            print("transposing")
-
         data=df.to_dict("records")
         columns=[{"name": i, "id": i} for i in df.columns]
 
