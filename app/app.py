@@ -7,13 +7,28 @@ from dash import html
 from dash import dash_table
 from keras.models import load_model
 import plotly.graph_objs as go
+import plotly.express as px
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
 
 import pandas as pd
+import numpy as np
 
-from constants import LINEPLOT_STYLE
-from utils import _clean_df, _table_data_to_df, _df_to_table_data, _parse_contents
+from constants import (
+    LINEPLOT_STYLE,
+    DATATABLE_STYLE,
+    INSTRUCTIONS,
+    REQUIRED_FEATURES,
+    FIGURE_MARGINS,
+)
+from utils import (
+    _clean_df,
+    _table_data_to_df,
+    _df_to_table_data,
+    _parse_contents,
+    _get_sample_feature_importances_local,
+    _get_sample_feature_importances_global,
+)
 
 # external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 external_stylesheets = [dbc.themes.BOOTSTRAP]
@@ -25,9 +40,12 @@ CSV_COLUMNS_AS_MONTHS = True
 
 # model = load_model(MODEL_PATH)
 
+instructions = dcc.Markdown(INSTRUCTIONS)
 
 example_data = pd.read_csv("./single_project_100.csv")
 sample_data, sample_cols = _df_to_table_data(_clean_df(example_data))
+sample_feature_importances_local = _get_sample_feature_importances_local()
+sample_feature_importances_global = _get_sample_feature_importances_global()
 
 
 def get_model_predictions(data: pd.DataFrame):
@@ -42,91 +60,31 @@ def get_explainability_results(data: pd.DataFrame):
     pass
 
 
-upload_instrs_col = dbc.Col(
-    [
-        dcc.Upload(
-            id="upload-data",
-            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
-            style={
-                "width": "100%",
-                "height": "60px",
-                "lineHeight": "60px",
-                "borderWidth": "1px",
-                "borderStyle": "dashed",
-                "borderRadius": "5px",
-                "textAlign": "center",
-                "margin": "10px",
-            },
-            # Allow multiple files to be uploaded
-            multiple=True,
-        ),
-    ],
-    width=3,
-)
-lineplot_title = html.P("Project History")
-lineplot = html.Div(
-    dcc.Graph(id="lineplot", style=LINEPLOT_STYLE),
-    style={"display": "inline-block", "padding": "0 20"},
-)
-tablediv = html.Div(
-    [
-        html.Div(id="filename"),
-        html.Div(id="upload-time"),
-        dash_table.DataTable(
-            data=sample_data, columns=sample_cols, editable=True, id="table"
-        ),
-    ],
-    style={
-        "overflow": "scroll",
-    },
-)
-
-line_graph_col = dbc.Col(
-    [lineplot_title, lineplot, tablediv],
-    width=6,
-)
-
-explanations_col = dbc.Col(children=None, width=3)
-
-app.layout = html.Div(
-    dbc.Row(
-        [
-            upload_instrs_col,
-            line_graph_col,
-            explanations_col,
-        ]
-    )
-)
+def _update_global_feature_importances(df: pd.DataFrame):
+    fig = go.Figure()
+    for col in df.columns:
+        fig.add_trace(go.Box(x=df[col], name=col))
+    fig.update_layout(showlegend=False)
+    fig.update_layout(margin=FIGURE_MARGINS)
+    return fig
 
 
-@app.callback(
-    Output("table", "data"),
-    Output("table", "columns"),
-    Output("filename", "children"),
-    Output("upload-time", "children"),
-    Input("upload-data", "contents"),
-    State("upload-data", "filename"),
-    State("upload-data", "last_modified"),
-)
-def update_table(list_of_contents, list_of_names, list_of_dates):
-    data = filename = date = columns = None
-
-    if list_of_contents is None:
-        raise PreventUpdate
-
-    if list_of_contents is not None:
-        filename, date, df = _parse_contents(
-            list_of_contents[0], list_of_names[0], list_of_dates[0]
+def _update_local_feature_importances(feature_importances: pd.Series):
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            y=feature_importances.index,
+            x=feature_importances.values,
+            # name=col,
+            orientation="h",
         )
-        data, columns = _df_to_table_data(df)
+    )
+    fig.update_layout(showlegend=False)
+    fig.update_layout(margin=FIGURE_MARGINS)
+    return fig
 
-    return data, columns, filename, date
 
-
-@app.callback(
-    Output("lineplot", "figure"), Input("table", "data"), Input("table", "columns")
-)
-def update_figure(data, columns):
+def _update_figure(data, columns):
     fig = make_subplots(
         rows=2,
         cols=1,
@@ -177,7 +135,128 @@ def update_figure(data, columns):
             row=1,
             col=1,
         )
+    fig.update_layout(margin=FIGURE_MARGINS)
     return fig
+
+
+upload_instrs_col = dbc.Col(
+    [
+        dcc.Upload(
+            id="upload-data",
+            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+            style={
+                "width": "100%",
+                "height": "60px",
+                "lineHeight": "60px",
+                "borderWidth": "1px",
+                "borderStyle": "dashed",
+                "borderRadius": "5px",
+                "textAlign": "center",
+                "margin": "10px",
+            },
+            # Allow multiple files to be uploaded
+            multiple=True,
+        ),
+        instructions,
+    ],
+    width=3,
+)
+lineplot_title = html.H3("Project History")
+lineplot = html.Div(
+    dcc.Graph(
+        id="lineplot",
+        style=LINEPLOT_STYLE,
+        figure=_update_figure(sample_data, sample_cols),
+    ),
+    style={"display": "inline-block", "padding": "0 20"},
+)
+tablediv = html.Div(
+    [
+        html.Div(id="filename"),
+        html.Div(id="upload-time"),
+        dash_table.DataTable(
+            data=sample_data,
+            columns=sample_cols,
+            editable=True,
+            id="table",
+            style_cell=DATATABLE_STYLE,
+        ),
+    ],
+    style={
+        "overflow": "scroll",
+    },
+)
+
+line_graph_col = dbc.Col(
+    [lineplot_title, lineplot, tablediv],
+    width=6,
+)
+
+global_explanations = html.Div(
+    [
+        html.H3("Global Explanations"),
+        dcc.Graph(
+            id="global_explanations",
+            figure=_update_global_feature_importances(
+                sample_feature_importances_global
+            ),
+        ),
+    ],
+)
+local_explanations = html.Div(
+    [
+        html.H3("Local Explanations"),
+        dcc.Graph(
+            id="local_explanations",
+            figure=_update_local_feature_importances(sample_feature_importances_local),
+        ),
+    ],
+)
+
+explanations_col = dbc.Col(children=[global_explanations, local_explanations], width=3)
+
+app.layout = html.Div(
+    dbc.Row(
+        [
+            upload_instrs_col,
+            line_graph_col,
+            explanations_col,
+        ]
+    )
+)
+
+
+@app.callback(
+    Output("table", "data"),
+    Output("table", "columns"),
+    Output("filename", "children"),
+    Output("upload-time", "children"),
+    Input("upload-data", "contents"),
+    State("upload-data", "filename"),
+    State("upload-data", "last_modified"),
+)
+def update_table(list_of_contents, list_of_names, list_of_dates):
+    data = filename = date = columns = None
+
+    if list_of_contents is None:
+        raise PreventUpdate
+
+    if list_of_contents is not None:
+        filename, date, df = _parse_contents(
+            list_of_contents[0], list_of_names[0], list_of_dates[0]
+        )
+        data, columns = _df_to_table_data(df)
+
+    return data, columns, filename, date
+
+
+@app.callback(
+    Output("lineplot", "figure"), Input("table", "data"), Input("table", "columns")
+)
+def update_figure(data, columns):
+    if data is None:
+        raise PreventUpdate
+    return _update_figure(data, columns)
 
 
 if __name__ == "__main__":
