@@ -4,6 +4,9 @@ import os
 ROOT = Path(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = ROOT / "data"
 
+
+# MODEL_PATH = "./model.h5"
+
 # REQUIRED_FEATURES =
 # ["active_devs",
 # "e_edges",
