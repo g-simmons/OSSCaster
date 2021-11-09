@@ -187,8 +187,14 @@ tablediv = html.Div(
     },
 )
 
+explain_local_button = html.Button("Explain", id="explain-local-button", n_clicks=0)
+
+month_detail_view = html.Div(
+    [html.H3("Month Details"), html.Div([explain_local_button], id="month-detail")]
+)
+
 line_graph_col = dbc.Col(
-    [lineplot_title, lineplot, tablediv],
+    [lineplot_title, lineplot, month_detail_view, tablediv],
     width=6,
 )
 
