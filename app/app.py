@@ -202,7 +202,7 @@ global_explanations = html.Div(
     [
         html.H3("Global Explanations"),
         dcc.Graph(
-            id="global_explanations",
+            id="global-explanations-boxplot",
             figure=_update_global_feature_importances(
                 sample_feature_importances_global
             ),
@@ -213,7 +213,7 @@ local_explanations = html.Div(
     [
         html.H3("Local Explanations"),
         dcc.Graph(
-            id="local_explanations",
+            id="local-explanations-barplot",
             figure=_update_local_feature_importances(sample_feature_importances_local),
         ),
     ],
@@ -254,6 +254,14 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
         data, columns = _df_to_table_data(df)
 
     return data, columns, filename, date
+
+
+@app.callback(
+    Output("local-explanations-barplot", "figure"),
+    Input("explain-local-button", "n_clicks"),
+)
+def update_output(value):
+    return _update_local_feature_importances(_get_sample_feature_importances_local())
 
 
 @app.callback(
