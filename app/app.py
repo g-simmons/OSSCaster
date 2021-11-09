@@ -8,6 +8,7 @@ from dash import dash_table
 from keras.models import load_model
 import plotly.graph_objs as go
 import plotly.express as px
+import json
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
 
@@ -187,10 +188,19 @@ tablediv = html.Div(
     },
 )
 
+prediction_bignumber_header = html.H4("Predicted Probability of Graduation")
+prediction_bignumber = html.Div(id="prediction-bignumber-div", children=[])
+
 explain_local_button = html.Button("Explain", id="explain-local-button", n_clicks=0)
 
 month_detail_view = html.Div(
-    [html.H3("Month Details"), html.Div([explain_local_button], id="month-detail")]
+    [
+        html.H3("Month Details"),
+        html.Div(
+            [prediction_bignumber_header, prediction_bignumber, explain_local_button],
+            id="month-detail",
+        ),
+    ]
 )
 
 line_graph_col = dbc.Col(
@@ -271,6 +281,27 @@ def update_figure(data, columns):
     if data is None:
         raise PreventUpdate
     return _update_figure(data, columns)
+
+
+def _get_month_success_prob(figdata, month):
+    for trace in figdata:
+        print(trace)
+        if "name" in trace.keys():
+            if trace["name"] == "success_probability":
+                return trace["y"][month]
+    return None
+
+
+@app.callback(
+    Output("prediction-bignumber-div", "children"),
+    Input("lineplot", "clickData"),
+    Input("lineplot", "figure"),
+)
+def update_prediction_bignumber(hover_data, figure):
+    month = hover_data["points"][0]["pointNumber"]
+    month_for_display = month + 1
+    month_success_prob = _get_month_success_prob(figure["data"], month)
+    return html.H1(str(month_success_prob))
 
 
 if __name__ == "__main__":
