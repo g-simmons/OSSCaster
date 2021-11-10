@@ -1,7 +1,7 @@
 wget
 jupyter
 tqdm
-keras
+tensorflow
 scikit-learn
 lime
 numpy
