@@ -162,4 +162,4 @@ if __name__ == '__main__':
         training_data=X_train,
         training_labels=y_train)
 
-    # plot_trajectories(trajectories, 'num_commits')
+    plot_trajectories(trajectories, 'num_commits')
