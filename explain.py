@@ -9,7 +9,9 @@ Authors:
     Fangzhou Li - fzli@ucdavis.edu
 
 Todo:
-    * Data file path?
+    * Both feature importances for classes.
+        * Not proceed. Reason: Importance of graduation is equivalent to the
+            negative of the importance of retirement.
 
 """
 import math
@@ -92,7 +94,7 @@ def explain_consecutive_instances(
     exp = explainer.explain_instance(
         data_points,
         model.predict,
-        labels=(1,),
+        labels=(0, 1),
         num_features=len(data_points) * len(feature_names),
         num_samples=5000)
 
@@ -115,10 +117,10 @@ def explain_consecutive_instances(
 
 
 if __name__ == '__main__':
-    N_TIMESTEPS = 30
+    N_TIMESTEPS = 8
 
     df = pd.read_csv(
-        f"Sustainability_Analysis/Reformat_data/30.csv")
+        f"Sustainability_Analysis/Reformat_data/{N_TIMESTEPS}.csv")
     df.replace('Graduated', '1', inplace=True)
     df.replace('Retired', '0', inplace=True)
 
@@ -134,27 +136,25 @@ if __name__ == '__main__':
     X = reshape_X(X_original, n_timesteps=N_TIMESTEPS)
     y = reshape_y(df[target_columns].values, n_timesteps=N_TIMESTEPS)
     y = to_categorical(y.astype(int))
+
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, shuffle=False)
+        X, y, test_size=0.2, shuffle=True, random_state=42)
 
-    # model = Sequential()
-    # model.add(LSTM(64, input_shape=(N_TIMESTEPS, len(data_columns))))
-    # model.add(Dropout(0.3))
-    # model.add(Dense(2, activation='softmax'))
-    # model.compile(
-    #     loss='binary_crossentropy',
-    #     optimizer=Adam(),
-    #     metrics=['accuracy'])
-    # model.fit(
-    #     X_train,
-    #     y_train,
-    #     batch_size=30,
-    #     epochs=100,
-    #     validation_data=(X_test, y_test),
-    #     verbose=1)
-    # model.save('./models/reduced_model_30.h5')
-
-    model = load_model('./models/reduced_model_30.h5')
+    model = Sequential()
+    model.add(LSTM(64, input_shape=(N_TIMESTEPS, len(data_columns))))
+    model.add(Dropout(0.3))
+    model.add(Dense(2, activation='softmax'))
+    model.compile(
+        loss='binary_crossentropy',
+        optimizer=Adam(),
+        metrics=['accuracy'])
+    model.fit(
+        X_train,
+        y_train,
+        batch_size=30,
+        epochs=100,
+        validation_data=(X_test, y_test),
+        verbose=1)
 
     trajectories = explain_consecutive_instances(
         data_points=X_test[0],
@@ -162,4 +162,4 @@ if __name__ == '__main__':
         training_data=X_train,
         training_labels=y_train)
 
-    plot_trajectories(trajectories, 'num_commits')
+    # plot_trajectories(trajectories, 'num_commits')
