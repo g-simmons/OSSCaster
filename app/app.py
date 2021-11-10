@@ -319,10 +319,10 @@ def update_prediction_bignumber(hover_data, figure):
     month_success_prob = _get_month_success_prob(figure["data"], month)
     month_features = _get_month_features(figure["data"], month)
     month_features_style = {"font-size": 8, "margin": 0}
-    return html.H1(str(month_success_prob)), [
-        html.P(f"{k}: {v}", style=month_features_style)
-        for k, v in month_features.items()
-    ]
+    return html.H1(str(month_success_prob)), html.P(
+        ", ".join([f"{k}: {v}" for k, v in month_features.items()]),
+        style=month_features_style,
+    )
 
 
 if __name__ == "__main__":
