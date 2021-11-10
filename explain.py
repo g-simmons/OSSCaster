@@ -61,20 +61,19 @@ def explain_instance_in_time_window(
         data_points,
         model,
         labels=(1,),
-        # num_features=-1,
-        # num_samples=5000,
-        # X=None,
-        # y=None,
-        # feature_names=None,
-        random_state=None
-        ):
+        num_features=-1,
+        num_samples=5000,
+        X=None,
+        y=None,
+        feature_names=None,
+        random_state=None):
     """
     """
     feature_names = [
-            'active_devs', 'num_commits', 'num_files', 'num_emails',
-            'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
-            'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
-            'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
+        'active_devs', 'num_commits', 'num_files', 'num_emails',
+        'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
+        'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
+        'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
 
     explainer = lime_tabular.RecurrentTabularExplainer(
         training_data=None,
@@ -85,6 +84,7 @@ def explain_instance_in_time_window(
         random_state=random_state)
 
     for data_point in data_points:
+        pass
 
     explainer.explain_instance(
         data_point,
@@ -92,6 +92,7 @@ def explain_instance_in_time_window(
         labels=labels,
         num_features=num_features,
         num_samples=num_samples)
+
 
 if __main__ == '__name__':
     # Load a model that is used to test explanation API.
