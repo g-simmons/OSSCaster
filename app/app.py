@@ -190,6 +190,7 @@ tablediv = html.Div(
 
 prediction_bignumber_header = html.H4("Predicted Probability of Graduation")
 prediction_bignumber = html.Div(id="prediction-bignumber-div", children=[])
+month_features = html.Div(id="month-features-div", children=[])
 
 explain_local_button = html.Button("Explain", id="explain-local-button", n_clicks=0)
 
@@ -197,7 +198,12 @@ month_detail_view = html.Div(
     [
         html.H3("Month Details"),
         html.Div(
-            [prediction_bignumber_header, prediction_bignumber, explain_local_button],
+            [
+                prediction_bignumber_header,
+                prediction_bignumber,
+                month_features,
+                explain_local_button,
+            ],
             id="month-detail",
         ),
     ]
@@ -285,15 +291,25 @@ def update_figure(data, columns):
 
 def _get_month_success_prob(figdata, month):
     for trace in figdata:
-        print(trace)
         if "name" in trace.keys():
             if trace["name"] == "success_probability":
                 return trace["y"][month]
     return None
 
 
+def _get_month_features(figdata, month):
+    month_features = {}
+    for trace in figdata:
+        if "name" in trace.keys():
+            if trace["name"] == "success_probability":
+                continue
+            month_features[trace["name"]] = trace["y"][month]
+    return month_features
+
+
 @app.callback(
     Output("prediction-bignumber-div", "children"),
+    Output("month-features-div", "children"),
     Input("lineplot", "clickData"),
     Input("lineplot", "figure"),
 )
@@ -301,7 +317,12 @@ def update_prediction_bignumber(hover_data, figure):
     month = hover_data["points"][0]["pointNumber"]
     month_for_display = month + 1
     month_success_prob = _get_month_success_prob(figure["data"], month)
-    return html.H1(str(month_success_prob))
+    month_features = _get_month_features(figure["data"], month)
+    month_features_style = {"font-size": 8, "margin": 0}
+    return html.H1(str(month_success_prob)), [
+        html.P(f"{k}: {v}", style=month_features_style)
+        for k, v in month_features.items()
+    ]
 
 
 if __name__ == "__main__":
