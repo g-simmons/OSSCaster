@@ -93,7 +93,7 @@ def explain_instance_in_time_window(
         num_samples=num_samples)
 
 
-if __main__ == '__name__':
+if __name__ == '__main__':
     # Load a model that is used to test explanation API.
 
     # Use N_TIMESTEPS as time of lookback for LSTM
