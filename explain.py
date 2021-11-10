@@ -16,11 +16,10 @@ import math
 
 from lime import lime_tabular
 from tqdm import tqdm
-from keras.utils import to_categorical
-from keras.models import load_model
-from keras.models import Sequential
-from keras.layers import LSTM, Dropout, Dense
-from keras.optimizers import Adam
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import LSTM, Dropout, Dense
+from tensorflow.keras.optimizers import Adam
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
