@@ -56,15 +56,22 @@ def reshape_y(seq, n_timesteps):
     return new_seq
 
 
-def explain_instance_in_time_window(
+def plot_trajectories(trajectories, feature):
+    """
+    """
+    feature_trajectory = [trajectories[t][feature]
+                          for t in trajectories.keys()]
+    plt.plot(
+        list(trajectories.keys()),
+        feature_trajectory)
+    plt.show()
+
+
+def explain_consecutive_instances(
         data_points,
         model,
-        labels=(1,),
-        num_features=-1,
-        num_samples=5000,
-        X=None,
-        y=None,
-        feature_names=None,
+        training_data,
+        training_labels=None,
         random_state=None):
     """
     """
@@ -75,43 +82,39 @@ def explain_instance_in_time_window(
         'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
 
     explainer = lime_tabular.RecurrentTabularExplainer(
-        training_data=None,
-        training_labels=None,
+        training_data=training_data,
+        training_labels=training_labels,
         feature_names=feature_names,
         class_names=['Graduated', 'Retired'],
         discretize_continuous=False,
         random_state=random_state)
 
-    for data_point in data_points:
-        pass
-
-    explainer.explain_instance(
-        data_point,
+    exp = explainer.explain_instance(
+        data_points,
         model.predict,
-        labels=labels,
-        num_features=num_features,
-        num_samples=num_samples)
+        labels=(1,),
+        num_features=len(data_points) * len(feature_names),
+        num_samples=5000)
+
+    feature_score_pairs = exp.as_list()
+
+    # Split timestamp and feature name and sort by timestamp.
+    feature_t_score_triples \
+        = [(f.split('-')[0][:-2], f.split('-')[1], s)
+            for f, s in feature_score_pairs]
+
+    trajectories = {i: {} for i in range(len(data_points))}
+    for f, t, s in feature_t_score_triples:
+        trajectories[int(t)][f] = s
+
+    # Sort keys to be consistent to the input.
+    for i in range(len(data_points)):
+        trajectories[i] = {f: trajectories[i][f] for f in feature_names}
+
+    return trajectories
 
 
 if __name__ == '__main__':
-    # Load a model that is used to test explanation API.
-
-    # Use N_TIMESTEPS as time of lookback for LSTM
-    # qutertile_coefs_path = './results/test_qutertile_coefs.csv'
-    # aggregated_coefs_path = './results/aggregated_coefs.csv'
-    # monthly_coefs_path = './results/monthly_coefs.csv'
-
-    # with open(aggregated_coefs_path, 'w') as f:
-    #     f.write('project,feature,weight\n')
-    # with open(qutertile_coefs_path, 'w') as f:
-    #     f.write('project,feature,quartile,weight\n')
-    # with open(monthly_coefs_path, 'w') as f:
-    #     f.write('project,feature,month,weight\n')
-
-    # month_list = list(range(1, 31))[::-1]
-    # month_list = list(range(12,13))[::-1]
-    project_set = set()
-
     N_TIMESTEPS = 30
 
     df = pd.read_csv(
@@ -132,105 +135,31 @@ if __name__ == '__main__':
     y = reshape_y(df[target_columns].values, n_timesteps=N_TIMESTEPS)
     y = to_categorical(y.astype(int))
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2)
+        X, y, test_size=0.2, shuffle=False)
 
-    model = Sequential()
-    model.add(LSTM(64, input_shape=(N_TIMESTEPS, len(data_columns))))
-    model.add(Dropout(0.3))
-    model.add(Dense(2, activation='softmax'))
-    model.compile(loss='binary_crossentropy', optimizer=Adam())
-    model.fit(X_train, y_train, batch_size=30, epochs=100, verbose=1)
-    model.save(f'./models/model_{N_TIMESTEPS}.h5')
+    # model = Sequential()
+    # model.add(LSTM(64, input_shape=(N_TIMESTEPS, len(data_columns))))
+    # model.add(Dropout(0.3))
+    # model.add(Dense(2, activation='softmax'))
+    # model.compile(
+    #     loss='binary_crossentropy',
+    #     optimizer=Adam(),
+    #     metrics=['accuracy'])
+    # model.fit(
+    #     X_train,
+    #     y_train,
+    #     batch_size=30,
+    #     epochs=100,
+    #     validation_data=(X_test, y_test),
+    #     verbose=1)
+    # model.save('./models/reduced_model_30.h5')
 
-    # for N_TIMESTEPS in tqdm(month_list):
-    #     df = pd.read_csv(
-    #         f"Sustainability_Analysis/Reformat_data/{N_TIMESTEPS}.csv")
-    #     df.replace('Graduated', '1', inplace=True)
-    #     df.replace('Retired', '0', inplace=True)
+    model = load_model('./models/reduced_model_30.h5')
 
-    #     data_columns = [
-    #         'active_devs', 'num_commits', 'num_files', 'num_emails',
-    #         'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
-    #         'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
-    #         'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
-    #     target_columns = ['status']
+    trajectories = explain_consecutive_instances(
+        data_points=X_test[0],
+        model=model,
+        training_data=X_train,
+        training_labels=y_train)
 
-    #     scaler = MinMaxScaler(feature_range=(-1, 1))
-    #     X_original = scaler.fit_transform(df[data_columns].values)
-    #     X = reshape_X(X_original, n_timesteps=N_TIMESTEPS)
-    #     y = reshape_y(df[target_columns].values, n_timesteps=N_TIMESTEPS)
-    #     y = to_categorical(y.astype(int))
-    #     X_train, X_test, y_train, y_test = train_test_split(
-    #         X, y, test_size=0.2)
-
-    #     model = Sequential()
-    #     model.add(LSTM(64, input_shape=(N_TIMESTEPS, len(data_columns))))
-    #     model.add(Dropout(0.3))
-    #     model.add(Dense(2, activation='softmax'))
-    #     model.compile(loss='binary_crossentropy', optimizer=Adam())
-    #     model.fit(X_train, y_train, batch_size=30, epochs=100, verbose=1)
-        # model.save('./models/reduced_model_{}.h5'.format(N_TIMESTEPS))
-
-        # y_pred = np.argmax(model.predict(X_test), axis=1)
-        # y_true = np.argmax(y_test, axis=1)
-        # # metrics = classification_report(y_true, y_pred, output_dict = True)
-
-        # explainer = lime_tabular.RecurrentTabularExplainer(
-        #     X, training_labels=y,
-        #     feature_names=data_columns,
-        #     discretize_continuous=False,
-        #     class_names=['Graduated', 'Retired'])
-
-        # pids = df['project'].unique()
-        # pairs = [(pid, x) for pid, x in zip(pids, X) if pid not in project_set]
-
-        # for pid, x in tqdm(pairs):
-        #     project_set.add(pid)
-        #     # return the all coefs of all timesteps
-        #     # len(X[i]) is the number of timesteps
-        #     exp = explainer.explain_instance(
-        #         x,
-        #         model.predict,
-        #         num_features=len(data_columns) * len(x),
-        #         labels=(1,))
-        #     res = exp.as_list()
-        #     dic = {}
-        #     for feature, weight in res:
-        #         # remove the month index
-        #         *fs, m = feature.split('_')
-        #         m = N_TIMESTEPS + int(m[1:])
-        #         # combine and get the feature name
-        #         fn = '_'.join(fs)
-        #         # convert the time to quartile time
-        #         quartile = str(math.ceil(4*m/N_TIMESTEPS))
-
-        #         if fn not in dic:
-        #             dic[fn] = {}
-        #         if quartile not in dic[fn]:
-        #             dic[fn][quartile] = []
-        #         dic[fn][quartile].append(weight)
-
-        #         with open(monthly_coefs_path, 'a') as f:
-        #             things = [str(pid), fn, str(m), str(weight)]
-        #             f.write(','.join(things))
-        #             f.write('\n')
-
-        #     with open(qutertile_coefs_path, 'a') as f:
-        #         for fn in dic:
-        #             for quartile in dic[fn]:
-        #                 weight = sum(dic[fn][quartile]) / len(dic[fn][quartile])
-        #                 things = [str(pid), fn, quartile, str(weight)]
-        #                 f.write(','.join(things))
-        #                 f.write('\n')
-
-        #     with open(aggregated_coefs_path, 'a') as f:
-        #         for fn in dic:
-        #             weights = []
-        #             for quartile in dic[fn]:
-        #                 weights += dic[fn][quartile]
-        #             weight = sum(weights) / len(weights)
-        #             things = [str(pid), fn, str(weight)]
-        #             f.write(','.join(things))
-        #             f.write('\n')
-
-    # print('all done.')
+    plot_trajectories(trajectories, 'num_commits')
