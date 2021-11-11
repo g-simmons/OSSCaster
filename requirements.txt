@@ -6,4 +6,4 @@ scikit-learn
 lime
 numpy
 pandas
-matplotlib
+seaborn
