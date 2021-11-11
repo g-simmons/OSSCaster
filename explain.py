@@ -27,11 +27,11 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 
 def reshape_X(seq, n_timesteps):
-    # N = len(seq) - n_timesteps - 1
     N = int(len(seq) / n_timesteps)
     if N <= 0:
         raise ValueError('need more data.')
@@ -45,7 +45,6 @@ def reshape_X(seq, n_timesteps):
 
 
 def reshape_y(seq, n_timesteps):
-    # N = len(seq) - n_timesteps - 1
     N = int(len(seq) / n_timesteps)
     if N <= 0:
         raise ValueError('need more data.')
@@ -58,30 +57,34 @@ def reshape_y(seq, n_timesteps):
     return new_seq
 
 
-def plot_trajectories(trajectories, feature):
+def plot_trajectories(trajectories):
     """
     """
-    feature_trajectory = [trajectories[t][feature]
-                          for t in trajectories.keys()]
-    plt.plot(
-        list(trajectories.keys()),
-        feature_trajectory)
+    sns.set(font_scale=0.8)
+
+    df_trajectories = pd.DataFrame(trajectories).T
+
+    ax = sns.boxplot(
+        data=df_trajectories,
+    )
+    ax.tick_params(axis='x', rotation=90)
     plt.show()
 
 
 def explain_consecutive_instances(
         data_points,
+        feature_names,
         model,
         training_data,
         training_labels=None,
         random_state=None):
     """
     """
-    feature_names = [
-        'active_devs', 'num_commits', 'num_files', 'num_emails',
-        'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
-        'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
-        'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
+    # feature_names = [
+    #     'active_devs', 'num_commits', 'num_files', 'num_emails',
+    #     'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
+    #     'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
+    #     'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
 
     explainer = lime_tabular.RecurrentTabularExplainer(
         training_data=training_data,
@@ -118,6 +121,7 @@ def explain_consecutive_instances(
 
 if __name__ == '__main__':
     N_TIMESTEPS = 8
+    RANDOM_STATE = 42
 
     df = pd.read_csv(
         f"Sustainability_Analysis/Reformat_data/{N_TIMESTEPS}.csv")
@@ -138,28 +142,31 @@ if __name__ == '__main__':
     y = to_categorical(y.astype(int))
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, shuffle=True, random_state=42)
+        X, y, test_size=0.2, shuffle=True, random_state=RANDOM_STATE)
 
-    model = Sequential()
-    model.add(LSTM(64, input_shape=(N_TIMESTEPS, len(data_columns))))
-    model.add(Dropout(0.3))
-    model.add(Dense(2, activation='softmax'))
-    model.compile(
-        loss='binary_crossentropy',
-        optimizer=Adam(),
-        metrics=['accuracy'])
-    model.fit(
-        X_train,
-        y_train,
-        batch_size=30,
-        epochs=100,
-        validation_data=(X_test, y_test),
-        verbose=1)
+    # model = Sequential()
+    # model.add(LSTM(64, input_shape=(N_TIMESTEPS, len(data_columns))))
+    # model.add(Dropout(0.3))
+    # model.add(Dense(2, activation='softmax'))
+    # model.compile(
+    #     loss='binary_crossentropy',
+    #     optimizer=Adam(),
+    #     metrics=['accuracy'])
+    # model.fit(
+    #     X_train,
+    #     y_train,
+    #     batch_size=30,
+    #     epochs=100,
+    #     validation_data=(X_test, y_test),
+    #     verbose=1)
+    # model.save('models/model_' + str(N_TIMESTEPS) + '.h5')
 
+    model = load_model('models/model_' + str(N_TIMESTEPS) + '.h5')
     trajectories = explain_consecutive_instances(
         data_points=X_test[0],
+        feature_names=data_columns,
         model=model,
         training_data=X_train,
         training_labels=y_train)
 
-    plot_trajectories(trajectories, 'num_commits')
+    plot_trajectories(trajectories)
