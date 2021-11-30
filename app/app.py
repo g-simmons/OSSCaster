@@ -11,6 +11,8 @@ import plotly.express as px
 import json
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
+from osscaster.explain import SustainabilityExplainer
+from osscaster.constants import N_TIMESTEPS
 
 import pandas as pd
 import numpy as np
@@ -58,7 +60,15 @@ def get_model_predictions(data: pd.DataFrame):
 
 
 def get_explainability_results(data: pd.DataFrame):
-    pass
+    model = load_model("models/model_" + str(N_TIMESTEPS) + ".h5")
+    explainer = SustainabilityExplainer(
+        feature_names=DATA_COLUMNS,
+        class_names=["Graduated", "Retired"],
+        n_timesteps=N_TIMESTEPS,
+        random_state=RANDOM_STATE,
+    )
+
+    return explainer.explain_by_shap(data.values, model)
 
 
 def _update_global_feature_importances(df: pd.DataFrame):
