@@ -1,3 +1,10 @@
 wget
 jupyter
 tqdm
+tensorflow
+scikit-learn
+lime
+numpy
+pandas
+seaborn
+shap
