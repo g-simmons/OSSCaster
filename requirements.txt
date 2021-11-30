@@ -1,9 +1,13 @@
 wget
 jupyter
 tqdm
+keras
+matplotlib
+lime
+dash
+dash_bootstrap_components
 tensorflow
 scikit-learn
-lime
 numpy
 pandas
 seaborn
