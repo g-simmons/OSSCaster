@@ -18,3 +18,6 @@ python Sustainability_Analysis/4_models/LSTM_metrics.py
 python Sustainability_Analysis/4_models/LSTM_metrics_without_ST_elements.py
 python Sustainability_Analysis/4_models/LIME.py
 ```
+## File Structure
+Add more files here in the future.
+- `explain.py`: API for explanation.

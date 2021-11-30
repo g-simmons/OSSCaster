@@ -1,7 +1,9 @@
-import wget
-import zipfile
-from constants import ROOT
 import os
+import zipfile
+
+import wget
+
+from constants import ROOT
 
 
 def main():
@@ -12,7 +14,8 @@ def main():
     if not os.path.exists(ZIP_PATH):
         print("\ndownloading Sustainability_Analysis.zip...")
         wget.download(
-            "https://zenodo.org/record/4564072/files/Sustainability_Analysis.zip?download=1",
+            "https://zenodo.org/record/4564072/files/"
+            "Sustainability_Analysis.zip?download=1",
             ZIP_PATH,
         )
     else:
