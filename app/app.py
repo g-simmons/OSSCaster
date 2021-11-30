@@ -1,3 +1,9 @@
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # hide tensorflow warnings
+import tensorflow as tf
+
+tf.get_logger().setLevel("ERROR")  # hide tensorflow warnings
 import dash
 from dash.dash_table.DataTable import DataTable
 from dash.dependencies import Input, Output, State
@@ -12,7 +18,7 @@ import json
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
 from osscaster.explain import SustainabilityExplainer
-from osscaster.constants import N_TIMESTEPS
+from osscaster.constants import RANDOM_STATE, DATA_COLUMNS, N_TIMESTEPS
 
 import pandas as pd
 import numpy as np
@@ -278,6 +284,10 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
             list_of_contents[0], list_of_names[0], list_of_dates[0]
         )
         data, columns = _df_to_table_data(df)
+
+    print("Calculating explainability results")
+    exp_results = get_explainability_results(data)
+    print(exp_results)
 
     return data, columns, filename, date
 
