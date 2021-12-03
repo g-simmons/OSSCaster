@@ -153,7 +153,9 @@ class SustainabilityExplainer:
             )
             fig.savefig(save_plot)
 
-        return shap_values[0]
+        return shap_values[
+            0
+        ]  # take 0 because we are interested in feature importance with respect to the positive class
 
     def load_and_split_data(self, n_timesteps=8):
         df = pd.read_csv(REFORMAT_DATA_DIR / f"{n_timesteps}.csv")
