@@ -133,17 +133,46 @@ class SustainabilityExplainer:
             save_plot (str, optional): path to save the plot. Defaults to None.
 
         Returns:
-            (np.array): 1d array, n_features. Feature importance sorted by
-                feature names.
+            (dict): dictionary of feature importances. Example:
+                {
+                    0: {
+                        'feature_name_1': 'feature_importance',
+                        'feature_name_2': 'feature_importance',
+                        ...
+                    },
+
+                    1: {
+                        'feature_name_1': 'feature_importance',
+                        'feature_name_2': 'feature_importance',
+                        ...
+                    },
+
+                    ...,
+
+                    n_timestamp-1: {
+                        'feature_name_1': 'feature_importance',
+                        'feature_name_2': 'feature_importance',
+                        ...
+                    }
+                }
 
         """
         explainer = shap.DeepExplainer(model, self.X_train)
 
         x = np.expand_dims(x, axis=0)
         shap_values = explainer.shap_values(x)
-        shap_values = [np.mean(sv, axis=1) for sv in shap_values][1]
+
+        shap_values_dict = {}
+        # first 0 because we are interested in feature importance with respect
+        #   to the positive class, second 0 to flatten the 3d array with only
+        #   1 project to 2d.
+        for i, sv in enumerate(shap_values[0][0]):
+            shap_values_dict[i] = {}
+            for j, v in enumerate(sv):
+                shap_values_dict[i][self.feature_names[j]] = v
 
         if save_plot is not None:
+            shap_values = [np.mean(sv, axis=1) for sv in shap_values][1]
             fig = shap.force_plot(
                 base_value=explainer.expected_value[1],
                 shap_values=shap_values,
@@ -152,10 +181,7 @@ class SustainabilityExplainer:
                 show=False,
             )
             fig.savefig(save_plot)
-
-        return shap_values[
-            0
-        ]  # take 0 because we are interested in feature importance with respect to the positive class
+        return shap_values_dict
 
     def load_and_split_data(self, n_timesteps=8):
         df = pd.read_csv(REFORMAT_DATA_DIR / f"{n_timesteps}.csv")
