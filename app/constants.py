@@ -18,6 +18,8 @@ INSTRUCTIONS = """
 
 DATATABLE_STYLE = {"fontSize": 12, "font-family": "sans-serif"}
 
+MONTH_FEATURES_STYLE = {"font-size": 8, "margin": 0}
+
 # MODEL_PATH = "./model.h5"
 
 # REQUIRED_FEATURES = [

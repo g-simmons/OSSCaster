@@ -29,6 +29,7 @@ from constants import (
     DATATABLE_STYLE,
     INSTRUCTIONS,
     FIGURE_MARGINS,
+    MONTH_FEATURES_STYLE,
 )
 from utils import (
     _clean_df,
@@ -308,13 +309,13 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
     return data, columns, filename, date, global_feature_importances_fig
 
 
-@app.callback(
-    Output("local-explanations-barplot", "figure"),
-    Input("explain-local-button", "n_clicks"),
-    # Input("all-feature-importances", "children"),
-)
-def update_output(value):
-    return _update_local_feature_importances(_get_sample_feature_importances_local())
+# @app.callback(
+#     Output("local-explanations-barplot", "figure"),
+#     Input("explain-local-button", "n_clicks"),
+#     # Input("all-feature-importances", "children"),
+# )
+# def update_output(value):
+#     return _update_local_feature_importances(_get_sample_feature_importances_local())
 
 
 @app.callback(
@@ -344,23 +345,58 @@ def _get_month_features(figdata, month):
     return month_features
 
 
+def _get_month_feature_importances(figdata, month):
+    feature_importances = {}
+    for trace in figdata:
+        if "name" in trace.keys():
+            if month >= len(trace["x"]):
+                raise ValueError(
+                    "Selected month is greater than the number of months used in prediction"
+                )
+            if trace["name"] == "success_probability":
+                continue
+            feature_importances[trace["name"]] = trace["x"][month]
+    return feature_importances
+
+
 @app.callback(
     Output("prediction-bignumber-div", "children"),
     Output("month-features-div", "children"),
+    Output("local-explanations-barplot", "figure"),
     Input("lineplot", "clickData"),
     Input("lineplot", "figure"),
+    Input("global-explanations-boxplot", "figure"),
 )
-def update_prediction_bignumber(hover_data, figure):
+def update_prediction_bignumber(hover_data, lineplot_fig, global_explanations_fig):
     if hover_data is None:
         raise PreventUpdate
     month = hover_data["points"][0]["pointNumber"]
     month_for_display = month + 1
-    month_success_prob = _get_month_success_prob(figure["data"], month)
-    month_features = _get_month_features(figure["data"], month)
-    month_features_style = {"font-size": 8, "margin": 0}
-    return html.H1(str(month_success_prob)), html.P(
-        ", ".join([f"{k}: {v}" for k, v in month_features.items()]),
-        style=month_features_style,
+    month_success_prob = _get_month_success_prob(lineplot_fig["data"], month)
+    month_features = _get_month_features(lineplot_fig["data"], month)
+
+    # if user clicks a month that is higher index than the number of months used in prediction,
+    # feature importances will not be available, so we populate the graph with zeros.
+    # TODO: inform user that feature importances are not available for this month/hide the graph etc.
+    if month >= len(global_explanations_fig["data"][0]["x"]):
+        local_explanations_fig = _update_local_feature_importances(
+            pd.Series(index=DATA_COLUMNS, data=np.zeros(len(DATA_COLUMNS)))
+        )
+    else:
+        month_feature_importances = _get_month_feature_importances(
+            global_explanations_fig["data"], month
+        )
+        local_explanations_fig = _update_local_feature_importances(
+            pd.Series(month_feature_importances)
+        )
+
+    return (
+        html.H1(str(month_success_prob)),
+        html.P(
+            ", ".join([f"{k}: {v}" for k, v in month_features.items()]),
+            style=MONTH_FEATURES_STYLE,
+        ),
+        local_explanations_fig,
     )
 
 
