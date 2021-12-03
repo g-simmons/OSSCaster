@@ -48,7 +48,37 @@ class SustainabilityExplainer:
         self.y_test = y_test
 
     def explain_by_lime(self, X, model, save_plot=None):
-        """ """
+        """Explain sustainability prediction of a project by LIME method.
+
+        Args:
+            X (np.array): 2d array, n_timestamps x n_features.
+            model (keras.Model): trained model.
+            save_plot (str, optional): path to save the plot. Defaults to None.
+
+        Returns:
+            (dict): dictionary of feature importances. Example:
+                {
+                    0: {
+                        'feature_name_1': 'feature_importance',
+                        'feature_name_2': 'feature_importance',
+                        ...
+                    },
+
+                    1: {
+                        'feature_name_1': 'feature_importance',
+                        'feature_name_2': 'feature_importance',
+                        ...
+                    },
+
+                    ...,
+
+                    n_timestamp-1: {
+                        'feature_name_1': 'feature_importance',
+                        'feature_name_2': 'feature_importance',
+                        ...
+                    }
+                }
+        """
         explainer = lime_tabular.RecurrentTabularExplainer(
             training_data=self.X_train,
             training_labels=self.y_train,
@@ -90,40 +120,35 @@ class SustainabilityExplainer:
         return lime_values
 
     def explain_by_shap(self, x, model, save_plot=None):
-        """
-        [summary]
+        """Explain sustainability prediction of a project by SHAP method.
 
-        Parameters
-        ----------
-        x : [type]
-            Should be an 2d array of project features vs time, with length equal to number of features in the data?
-        model : [type]
-            [description]
-        save_plot : [type], optional
-            [description], by default None
+        Args:
+            X (np.array): 2d array, n_timestamps x n_features.
+            model (keras.Model): trained model.
+            save_plot (str, optional): path to save the plot. Defaults to None.
 
-        Returns
-        -------
-        [type]
-            [description]
+        Returns:
+            (np.array): 1d array, n_features. Feature importance sorted by
+                feature names.
+
         """
         explainer = shap.DeepExplainer(model, self.X_train)
 
         x = np.expand_dims(x, axis=0)
         shap_values = explainer.shap_values(x)
-        shap_values = [np.mean(sv, axis=1) for sv in shap_values]
+        shap_values = [np.mean(sv, axis=1) for sv in shap_values][1]
 
         if save_plot is not None:
             fig = shap.force_plot(
                 base_value=explainer.expected_value[1],
-                shap_values=shap_values[1],
+                shap_values=shap_values,
                 features=DATA_COLUMNS,
                 matplotlib=True,
                 show=False,
             )
             fig.savefig(save_plot)
 
-        return shap_values
+        return shap_values[0]
 
     def load_and_split_data(n_timesteps=8):
         df = pd.read_csv(f"Sustainability_Analysis/Reformat_data/{n_timesteps}.csv")
