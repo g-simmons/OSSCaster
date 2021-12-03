@@ -27,10 +27,11 @@ FEATURES = [
     'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
     'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
     'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
+FEATURES_INTERVENE = ['active_devs', 'num_commits', 'num_files', 'num_emails']
 TARGETS = ['status']
 RANDOM_STATE = 42
 
-# np.random.seed(RANDOM_STATE)
+np.random.seed(RANDOM_STATE)
 
 def load_data(n_timesteps=8):
     df = pd.read_csv(
@@ -80,7 +81,7 @@ def generate_counterfactual_feature_value(feature_value, action):
 
     return feature_value
 
-def generate_counterfactual_data_point(x, model, n_actions):
+def generate_counterfactual_project(x, model, n_actions):
     """Generates a counterfactual data point.
 
     Args:
@@ -101,7 +102,7 @@ def generate_counterfactual_data_point(x, model, n_actions):
     x_ctf = np.copy(x)
     for i in range(n_actions):
         action = np.random.choice(ACTIONS)
-        feature = np.random.choice(FEATURES)
+        feature = np.random.choice(FEATURES_INTERVENE)
 
         xt = np.copy(x_ctf[-1])  # Last time step.
         xt[FEATURES.index(feature)] = generate_counterfactual_feature_value(
@@ -110,25 +111,71 @@ def generate_counterfactual_data_point(x, model, n_actions):
         y_ctf = model.predict(np.expand_dims(x_ctf[-len(x):], axis=0))
         results.append((x_ctf[-1], y_ctf, f"{feature}-{action}"))
 
-        print(
-            f"Generating {i + 1}-th counterfactual time point..."
-            f"Feature: {feature}"
-            f"Action : {action}")
+        # print(
+        #     f"Generating {i + 1}-th counterfactual time point...\n"
+        #     f"Feature: {feature}\n"
+        #     f"Action : {action}")
 
     return results
 
 
+def generate_counterfactual_data(
+        model, n_samples=10000, n_timestamps=8, n_actions=8):
+    """Generates a counterfactual data.
+
+    Args:
+        model (tf.keras.Model): The trained LSTM simulator.
+        n_samples (int): The number of generated counterfactual data points.
+        n_timestamps (int): The number of timestamps in a project.
+        n_actions (int): The number of counterfactual timestamps taken.
+
+    Returns:
+        (tuple): (counterfactual data, prediction, action).
+            counterfactual data (np.array):
+                shape=(n_timesteps + n_actions, n_features).
+            prediction (np.array): [p_graduated, p_retired].
+            action (str): {feature}_{action}.
+
+    """
+    len_x_new = n_timestamps + n_actions
+    X_train, X_test, y_train, y_test = load_data(n_timestamps)
+
+    x_df_list = []
+    for i in range(n_samples):
+        idx = np.random.choice(len(X_train))
+        x = X_train[idx]
+        y = y_train[idx]
+
+        x_ctf = generate_counterfactual_project(x, model, n_actions)
+
+        x_new = x.tolist() + [item[0] for item in x_ctf]
+        x_df = pd.DataFrame(x_new, columns=FEATURES)
+
+        x_df['project'] = [i + 1] * len_x_new
+        x_df['month'] = [j + 1 for j in range(len_x_new)]
+        x_df['prob_grad'] = [np.nan] * n_timestamps \
+            + [item[1][0][0] for item in x_ctf]
+        x_df['action'] = [np.nan] * n_timestamps \
+            + [item[2] for item in x_ctf]
+        x_df['status'] \
+            = ['Graduated' if y[0] == 1 else 'Retired'
+               for _ in range(n_timestamps)] \
+            + ['Graduated' if item[1][0][0] > 0.5 else 'Retired'
+               for item in x_ctf]
+
+        x_df_list.append(x_df)
+
+    x_df = pd.concat(x_df_list)
+    x_df = x_df[['project', 'month', 'status', 'prob_grad', 'action']
+                + FEATURES]
+
+    x_df.to_csv("test.csv", index=False)
+
+
 if __name__ == '__main__':
-    N_ACTIONS = 3
     N_TIMESTEPS = 8
 
-    X_train, X_test, y_train, y_test = load_data(n_timesteps=N_TIMESTEPS)
     model = load_model(f'models/model_{N_TIMESTEPS}.h5')
 
-    i = np.random.choice(len(X_train))
-    x = X_train[i]
-    y = y_train[i]
-
-    results = generate_counterfactual_data_point(x, model, N_ACTIONS)
-
-    print(results)
+    generate_counterfactual_data(
+        model, n_samples=5, n_timestamps=N_TIMESTEPS, n_actions=8)
