@@ -1,3 +1,4 @@
+from math import exp
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # hide tensorflow warnings
@@ -73,6 +74,7 @@ def get_explainability_results(data: pd.DataFrame):
     )
 
     return explainer.explain_by_shap(data.values, model)
+    # return explainer.explain_by_lime(data.values, model)
 
 
 def _update_global_feature_importances(df: pd.DataFrame):
@@ -248,8 +250,11 @@ local_explanations = html.Div(
         ),
     ],
 )
+all_feature_importances = html.P(id="all-feature-importances")
 
-explanations_col = dbc.Col(children=[global_explanations, local_explanations], width=3)
+explanations_col = dbc.Col(
+    children=[global_explanations, local_explanations, all_feature_importances], width=3
+)
 
 app.layout = html.Div(
     dbc.Row(
@@ -262,11 +267,19 @@ app.layout = html.Div(
 )
 
 
+def _get_global_feature_importances_from_explainability_results(exp_results):
+    feature_importances = [pd.Series(v) for k, v in exp_results.items()]
+    feature_importances = pd.concat(feature_importances, axis=1)
+    feature_importances = feature_importances.transpose()
+    return feature_importances
+
+
 @app.callback(
     Output("table", "data"),
     Output("table", "columns"),
     Output("filename", "children"),
     Output("upload-time", "children"),
+    Output("global-explanations-boxplot", "figure"),
     Input("upload-data", "contents"),
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
@@ -288,14 +301,17 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
     df = df.transpose()
     df = df[DATA_COLUMNS]
     exp_results = get_explainability_results(df)
-    print(exp_results)
+    global_feature_importances_fig = _update_global_feature_importances(
+        _get_global_feature_importances_from_explainability_results(exp_results)
+    )
 
-    return data, columns, filename, date
+    return data, columns, filename, date, global_feature_importances_fig
 
 
 @app.callback(
     Output("local-explanations-barplot", "figure"),
     Input("explain-local-button", "n_clicks"),
+    # Input("all-feature-importances", "children"),
 )
 def update_output(value):
     return _update_local_feature_importances(_get_sample_feature_importances_local())
