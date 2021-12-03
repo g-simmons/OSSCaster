@@ -18,7 +18,7 @@ import json
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
 from osscaster.explain import SustainabilityExplainer
-from osscaster.constants import RANDOM_STATE, DATA_COLUMNS, N_TIMESTEPS
+from osscaster.constants import MODELS_DIR, RANDOM_STATE, DATA_COLUMNS, N_TIMESTEPS
 
 import pandas as pd
 import numpy as np
@@ -27,7 +27,6 @@ from constants import (
     LINEPLOT_STYLE,
     DATATABLE_STYLE,
     INSTRUCTIONS,
-    REQUIRED_FEATURES,
     FIGURE_MARGINS,
 )
 from utils import (
@@ -46,12 +45,10 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 CSV_COLUMNS_AS_MONTHS = True
 
-
-# model = load_model(MODEL_PATH)
-
 instructions = dcc.Markdown(INSTRUCTIONS)
 
 example_data = pd.read_csv("./single_project_100.csv")
+example_data = example_data[example_data.iloc[:, 0].isin(DATA_COLUMNS)]
 sample_data, sample_cols = _df_to_table_data(_clean_df(example_data))
 sample_feature_importances_local = _get_sample_feature_importances_local()
 sample_feature_importances_global = _get_sample_feature_importances_global()
@@ -66,7 +63,8 @@ def get_model_predictions(data: pd.DataFrame):
 
 
 def get_explainability_results(data: pd.DataFrame):
-    model = load_model("models/model_" + str(N_TIMESTEPS) + ".h5")
+    data = data.head(N_TIMESTEPS)
+    model = load_model(MODELS_DIR / ("model_" + str(N_TIMESTEPS) + ".h5"))
     explainer = SustainabilityExplainer(
         feature_names=DATA_COLUMNS,
         class_names=["Graduated", "Retired"],
@@ -286,7 +284,10 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
         data, columns = _df_to_table_data(df)
 
     print("Calculating explainability results")
-    exp_results = get_explainability_results(data)
+    df = df.set_index("Unnamed: 0")
+    df = df.transpose()
+    df = df[DATA_COLUMNS]
+    exp_results = get_explainability_results(df)
     print(exp_results)
 
     return data, columns, filename, date
@@ -334,6 +335,8 @@ def _get_month_features(figdata, month):
     Input("lineplot", "figure"),
 )
 def update_prediction_bignumber(hover_data, figure):
+    if hover_data is None:
+        raise PreventUpdate
     month = hover_data["points"][0]["pointNumber"]
     month_for_display = month + 1
     month_success_prob = _get_month_success_prob(figure["data"], month)

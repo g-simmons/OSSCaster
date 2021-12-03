@@ -5,7 +5,7 @@ import datetime
 import io
 
 from dash import html
-from constants import REQUIRED_FEATURES
+from osscaster.constants import DATA_COLUMNS
 
 
 def _table_data_to_df(data, columns):
@@ -47,8 +47,8 @@ def _parse_contents(contents, filename, date):
 
 
 def _get_sample_feature_importances_local():
-    sample_feature_importances_local = np.random.rand(len(REQUIRED_FEATURES))
-    return pd.Series(sample_feature_importances_local, index=REQUIRED_FEATURES)
+    sample_feature_importances_local = np.random.rand(len(DATA_COLUMNS))
+    return pd.Series(sample_feature_importances_local, index=DATA_COLUMNS)
 
 
 def _get_sample_feature_importances_global():
@@ -59,6 +59,6 @@ def _get_sample_feature_importances_global():
                 for x in _get_sample_feature_importances_local()
             ]
         ).transpose(),
-        columns=REQUIRED_FEATURES,
+        columns=DATA_COLUMNS,
     )
     return sample_feature_importances_global

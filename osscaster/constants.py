@@ -1,8 +1,11 @@
 from pathlib import Path
 import os
 
-ROOT = Path(os.path.dirname(os.path.abspath(__file__)))
+ROOT = Path(os.path.dirname(os.path.abspath(__file__))).parent
 DATA_DIR = ROOT / "data"
+MODELS_DIR = ROOT / "models/"
+REFORMAT_DATA_DIR = ROOT / "Sustainability_Analysis/Reformat_data/"
+# MODELS_DIR = ROOT / "Sustainability_Analysis/4_models/"
 
 RANDOM_STATE = 42
 

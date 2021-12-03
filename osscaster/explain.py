@@ -27,7 +27,12 @@ import pandas as pd
 import seaborn as sns
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from osscaster.constants import DATA_COLUMNS, RANDOM_STATE, N_TIMESTEPS
+from osscaster.constants import (
+    REFORMAT_DATA_DIR,
+    DATA_COLUMNS,
+    RANDOM_STATE,
+    N_TIMESTEPS,
+)
 
 tf.compat.v1.disable_v2_behavior()
 sns.set(font_scale=0.8)
@@ -150,8 +155,9 @@ class SustainabilityExplainer:
 
         return shap_values[0]
 
-    def load_and_split_data(n_timesteps=8):
-        df = pd.read_csv(f"Sustainability_Analysis/Reformat_data/{n_timesteps}.csv")
+    def load_and_split_data(self, n_timesteps=8):
+        df = pd.read_csv(REFORMAT_DATA_DIR / f"{n_timesteps}.csv")
+        print(f"Loaded data with shape: {df.shape}")
         df.replace("Graduated", "1", inplace=True)
         df.replace("Retired", "0", inplace=True)
 
@@ -159,8 +165,8 @@ class SustainabilityExplainer:
 
         scaler = MinMaxScaler(feature_range=(-1, 1))
         X_original = scaler.fit_transform(df[DATA_COLUMNS].values)
-        X = reshape_X(X_original, n_timesteps=n_timesteps)
-        y = reshape_y(df[target_columns].values, n_timesteps=n_timesteps)
+        X = self.reshape_X(X_original, n_timesteps=n_timesteps)
+        y = self.reshape_y(df[target_columns].values, n_timesteps=n_timesteps)
         y = to_categorical(y.astype(int))
 
         X_train, X_test, y_train, y_test = train_test_split(
@@ -169,10 +175,7 @@ class SustainabilityExplainer:
 
         return X_train, X_test, y_train, y_test
 
-
-if __name__ == "__main__":
-
-    def reshape_X(seq, n_timesteps):
+    def reshape_X(self, seq, n_timesteps):
         N = int(len(seq) / n_timesteps)
         if N <= 0:
             raise ValueError("need more data.")
@@ -184,7 +187,7 @@ if __name__ == "__main__":
 
         return new_seq
 
-    def reshape_y(seq, n_timesteps):
+    def reshape_y(self, seq, n_timesteps):
         N = int(len(seq) / n_timesteps)
         if N <= 0:
             raise ValueError("need more data.")
@@ -195,6 +198,9 @@ if __name__ == "__main__":
             new_seq[i, :] = seq[i * n_timesteps]
 
         return new_seq
+
+
+if __name__ == "__main__":
 
     model = load_model("models/model_" + str(N_TIMESTEPS) + ".h5")
 
