@@ -209,7 +209,9 @@ prediction_bignumber_header = html.H4("Predicted Probability of Graduation")
 prediction_bignumber = html.Div(id="prediction-bignumber-div", children=[])
 month_features = html.Div(id="month-features-div", children=[])
 
-explain_local_button = html.Button("Explain", id="explain-local-button", n_clicks=0)
+explain_local_button = html.Button(
+    "Update Predictions", id="update-predictions-button", n_clicks=0
+)
 
 month_detail_view = html.Div(
     [
@@ -309,15 +311,6 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
     return data, columns, filename, date, global_feature_importances_fig
 
 
-# @app.callback(
-#     Output("local-explanations-barplot", "figure"),
-#     Input("explain-local-button", "n_clicks"),
-#     # Input("all-feature-importances", "children"),
-# )
-# def update_output(value):
-#     return _update_local_feature_importances(_get_sample_feature_importances_local())
-
-
 @app.callback(
     Output("lineplot", "figure"), Input("table", "data"), Input("table", "columns")
 )
@@ -366,8 +359,9 @@ def _get_month_feature_importances(figdata, month):
     Input("lineplot", "clickData"),
     Input("lineplot", "figure"),
     Input("global-explanations-boxplot", "figure"),
+    Input("update-predictions-button", "n_clicks"),
 )
-def update_prediction_bignumber(hover_data, lineplot_fig, global_explanations_fig):
+def update_prediction_bignumber(hover_data, lineplot_fig, global_explanations_fig, _):
     if hover_data is None:
         raise PreventUpdate
     month = hover_data["points"][0]["pointNumber"]
