@@ -64,7 +64,7 @@ def get_model_predictions(data: pd.DataFrame):
     )
 
 
-def get_explainability_results(data: pd.DataFrame):
+def get_explainability_results(data: pd.DataFrame, explanation_method: str):
     data = data.head(N_TIMESTEPS)
     model = load_model(MODELS_DIR / ("model_" + str(N_TIMESTEPS) + ".h5"))
     explainer = SustainabilityExplainer(
@@ -74,8 +74,10 @@ def get_explainability_results(data: pd.DataFrame):
         random_state=RANDOM_STATE,
     )
 
-    return explainer.explain_by_shap(data.values, model)
-    # return explainer.explain_by_lime(data.values, model)
+    if explanation_method == "lime":
+        return explainer.explain_by_shap(data.values, model)
+    elif explanation_method == "shap":
+        return explainer.explain_by_shap(data.values, model)
 
 
 def _update_global_feature_importances(df: pd.DataFrame):
@@ -233,6 +235,13 @@ line_graph_col = dbc.Col(
     width=6,
 )
 
+explanation_method_title = html.H3("Explanation Method")
+explanation_method_dropdown = dcc.Dropdown(
+    id="explanation-method-dropdown",
+    options=[{"label": "lime", "value": "lime"}, {"label": "shap", "value": "shap"}],
+    value="shap",
+)
+
 global_explanations = html.Div(
     [
         html.H3("Global Explanations"),
@@ -256,7 +265,14 @@ local_explanations = html.Div(
 all_feature_importances = html.P(id="all-feature-importances")
 
 explanations_col = dbc.Col(
-    children=[global_explanations, local_explanations, all_feature_importances], width=3
+    children=[
+        explanation_method_title,
+        explanation_method_dropdown,
+        global_explanations,
+        local_explanations,
+        all_feature_importances,
+    ],
+    width=3,
 )
 
 app.layout = html.Div(
@@ -286,6 +302,7 @@ def _get_global_feature_importances_from_explainability_results(exp_results):
     Input("upload-data", "contents"),
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
+    State("explanation-method-dropdown", "value"),
 )
 def update_table(list_of_contents, list_of_names, list_of_dates):
     data = filename = date = columns = None
@@ -303,7 +320,7 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
     df = df.set_index("Unnamed: 0")
     df = df.transpose()
     df = df[DATA_COLUMNS]
-    exp_results = get_explainability_results(df)
+    exp_results = get_explainability_results(df, "lime")
     global_feature_importances_fig = _update_global_feature_importances(
         _get_global_feature_importances_from_explainability_results(exp_results)
     )
@@ -361,10 +378,12 @@ def _get_month_feature_importances(figdata, month):
     Input("global-explanations-boxplot", "figure"),
     Input("update-predictions-button", "n_clicks"),
 )
-def update_prediction_bignumber(hover_data, lineplot_fig, global_explanations_fig, _):
-    if hover_data is None:
+def update_month_features_on_click(
+    click_data, lineplot_fig, global_explanations_fig, _
+):
+    if click_data is None:
         raise PreventUpdate
-    month = hover_data["points"][0]["pointNumber"]
+    month = click_data["points"][0]["pointNumber"]
     month_for_display = month + 1
     month_success_prob = _get_month_success_prob(lineplot_fig["data"], month)
     month_features = _get_month_features(lineplot_fig["data"], month)
