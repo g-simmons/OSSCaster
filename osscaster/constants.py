@@ -9,6 +9,7 @@ REFORMAT_DATA_DIR = ROOT / "Sustainability_Analysis/Reformat_data/"
 
 RANDOM_STATE = 42
 
+MAX_N_TIMESTEPS = 8  # TODO: this should be set to the longest model, probably same as the longest sequence in the training data
 N_TIMESTEPS = 8
 
 DATA_COLUMNS = [

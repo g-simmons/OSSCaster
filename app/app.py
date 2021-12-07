@@ -1,5 +1,10 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
 from math import exp
 import os
+
+from osscaster.model_utils import prep_features_for_model
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # hide tensorflow warnings
 import tensorflow as tf
@@ -19,7 +24,13 @@ import json
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
 from osscaster.explain import SustainabilityExplainer
-from osscaster.constants import MODELS_DIR, RANDOM_STATE, DATA_COLUMNS, N_TIMESTEPS
+from osscaster.constants import (
+    MODELS_DIR,
+    RANDOM_STATE,
+    DATA_COLUMNS,
+    MAX_N_TIMESTEPS,
+    N_TIMESTEPS,
+)
 
 import pandas as pd
 import numpy as np
@@ -34,7 +45,7 @@ from constants import (
 from utils import (
     _clean_df,
     _table_data_to_df,
-    _df_to_table_data,
+    _uploaded_df_to_table_data,
     _parse_contents,
     _get_sample_feature_importances_local,
     _get_sample_feature_importances_global,
@@ -51,33 +62,55 @@ instructions = dcc.Markdown(INSTRUCTIONS)
 
 example_data = pd.read_csv("./single_project_100.csv")
 example_data = example_data[example_data.iloc[:, 0].isin(DATA_COLUMNS)]
-sample_data, sample_cols = _df_to_table_data(_clean_df(example_data))
+sample_data, sample_cols = _uploaded_df_to_table_data(_clean_df(example_data))
 sample_feature_importances_local = _get_sample_feature_importances_local()
 sample_feature_importances_global = _get_sample_feature_importances_global()
 
 
 def get_model_predictions(data: pd.DataFrame):
+    max_timesteps = min(MAX_N_TIMESTEPS, len(data))
+    logging.debug(f"max_timesteps: {max_timesteps}")
+    success_probabilities = []
+    for i in range(1, max_timesteps):
+        # n_timesteps = i + 1
+        n_timesteps = 8  # TODO: hardcoded because I only have the 8 month model
+        logging.info(f"Trying to get predictions for {n_timesteps} timesteps")
+        data_trunc = data.head(n_timesteps)
+        model_path = MODELS_DIR / ("model_" + str(n_timesteps) + ".h5")
+        if not os.path.isfile(model_path):
+            logging.warning(f"Could not load model for {n_timesteps} timesteps")
+            success_probabilities.append(None)
+        else:
+            model = load_model(MODELS_DIR / ("model_" + str(n_timesteps) + ".h5"))
+            logging.info(f"Loaded model for {n_timesteps} timesteps")
+            probas = model.predict(prep_features_for_model(data_trunc))
+            proba_success = probas[:, 0]
+            proba_success = probas[:, 1]
+            success_probabilities.append(float(proba_success))
+            logging.info(f"Predictions obtained for {n_timesteps} timesteps")
     return (
-        [0.8] * len(data),
-        [0.9] * len(data),
-        [0.7] * len(data),
+        success_probabilities,
+        success_probabilities,  # TODO: this should be confidence interval upper bounds
+        success_probabilities,  # TODO: this should be confidence interval lower bounds
     )
 
 
 def get_explainability_results(data: pd.DataFrame, explanation_method: str):
-    data = data.head(N_TIMESTEPS)
-    model = load_model(MODELS_DIR / ("model_" + str(N_TIMESTEPS) + ".h5"))
+    n_timesteps = min(MAX_N_TIMESTEPS, len(data))
+    model = load_model(MODELS_DIR / ("model_" + str(n_timesteps) + ".h5"))
     explainer = SustainabilityExplainer(
         feature_names=DATA_COLUMNS,
         class_names=["Graduated", "Retired"],
-        n_timesteps=N_TIMESTEPS,
+        n_timesteps=n_timesteps,
         random_state=RANDOM_STATE,
     )
 
     if explanation_method == "lime":
-        return explainer.explain_by_shap(data.values, model)
+        results = explainer.explain_by_lime(data.values, model)
+        return results
     elif explanation_method == "shap":
-        return explainer.explain_by_shap(data.values, model)
+        results = explainer.explain_by_shap(data.values, model)
+        return results
 
 
 def _update_global_feature_importances(df: pd.DataFrame):
@@ -304,7 +337,7 @@ def _get_global_feature_importances_from_explainability_results(exp_results):
     State("upload-data", "last_modified"),
     State("explanation-method-dropdown", "value"),
 )
-def update_table(list_of_contents, list_of_names, list_of_dates):
+def update_table(list_of_contents, list_of_names, list_of_dates, explanation_method):
     data = filename = date = columns = None
 
     if list_of_contents is None:
@@ -314,13 +347,10 @@ def update_table(list_of_contents, list_of_names, list_of_dates):
         filename, date, df = _parse_contents(
             list_of_contents[0], list_of_names[0], list_of_dates[0]
         )
-        data, columns = _df_to_table_data(df)
+        data, columns = _uploaded_df_to_table_data(df)
 
-    print("Calculating explainability results")
-    df = df.set_index("Unnamed: 0")
-    df = df.transpose()
-    df = df[DATA_COLUMNS]
-    exp_results = get_explainability_results(df, "lime")
+    logging.info("Calculating explainability results")
+    exp_results = get_explainability_results(df, explanation_method)
     global_feature_importances_fig = _update_global_feature_importances(
         _get_global_feature_importances_from_explainability_results(exp_results)
     )

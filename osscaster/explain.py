@@ -27,6 +27,7 @@ import pandas as pd
 import seaborn as sns
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from osscaster.model_utils import reshape_X, reshape_y
 from osscaster.constants import (
     REFORMAT_DATA_DIR,
     DATA_COLUMNS,
@@ -183,7 +184,7 @@ class SustainabilityExplainer:
             fig.savefig(save_plot)
         return shap_values_dict
 
-    def load_and_split_data(self, n_timesteps=8):
+    def load_and_split_data(self, n_timesteps: int):
         df = pd.read_csv(REFORMAT_DATA_DIR / f"{n_timesteps}.csv")
         print(f"Loaded data with shape: {df.shape}")
         df.replace("Graduated", "1", inplace=True)
@@ -193,8 +194,8 @@ class SustainabilityExplainer:
 
         scaler = MinMaxScaler(feature_range=(-1, 1))
         X_original = scaler.fit_transform(df[DATA_COLUMNS].values)
-        X = self.reshape_X(X_original, n_timesteps=n_timesteps)
-        y = self.reshape_y(df[target_columns].values, n_timesteps=n_timesteps)
+        X = reshape_X(X_original, n_timesteps=n_timesteps)
+        y = reshape_y(df[target_columns].values, n_timesteps=n_timesteps)
         y = to_categorical(y.astype(int))
 
         X_train, X_test, y_train, y_test = train_test_split(
@@ -202,30 +203,6 @@ class SustainabilityExplainer:
         )
 
         return X_train, X_test, y_train, y_test
-
-    def reshape_X(self, seq, n_timesteps):
-        N = int(len(seq) / n_timesteps)
-        if N <= 0:
-            raise ValueError("need more data.")
-
-        nf = seq.shape[1]
-        new_seq = np.zeros((N, n_timesteps, nf))
-        for i in range(N):
-            new_seq[i, :, :] = seq[i : i + n_timesteps]
-
-        return new_seq
-
-    def reshape_y(self, seq, n_timesteps):
-        N = int(len(seq) / n_timesteps)
-        if N <= 0:
-            raise ValueError("need more data.")
-
-        nf = seq.shape[1]
-        new_seq = np.zeros((N, nf))
-        for i in range(N):
-            new_seq[i, :] = seq[i * n_timesteps]
-
-        return new_seq
 
 
 if __name__ == "__main__":

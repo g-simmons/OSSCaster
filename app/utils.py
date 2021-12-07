@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np
 import base64
 import datetime
+from typing import List, Dict
 import io
+import logging
 
 from dash import html
 from osscaster.constants import DATA_COLUMNS
@@ -10,14 +12,28 @@ from osscaster.constants import DATA_COLUMNS
 
 def _table_data_to_df(data, columns):
     df = pd.DataFrame(data, columns=[c["name"] for c in columns])
-    df = df.set_index(df.columns[0])
-    df = df.transpose()
+    # df = df.transpose()
+    # df = df.set_index(df.columns[0])
     return df
 
 
-def _df_to_table_data(df):
+def _uploaded_df_to_table_data(df) -> List[Dict[str, str]]:
+    """
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with first column containing feature names and remaining columns containing feature values
+    """
+    if not all([x in df.iloc[:, 0]] for x in DATA_COLUMNS):
+        raise ValueError("Dataframe does not contain all required columns")
+    df = df.set_index(df.columns[0])
+    df = df.transpose()
+    if not set(df.columns) == set(DATA_COLUMNS):
+        raise ValueError
+    if not len(df) > 0:
+        raise ValueError
     data = df.to_dict("records")
-    columns = [{"name": i, "id": i} for i in df.columns]
+    columns = [{"name": str(i), "id": str(i)} for i in df.columns]
     return data, columns
 
 
@@ -40,7 +56,7 @@ def _parse_contents(contents, filename, date):
 
         df = _clean_df(df)
     except Exception as e:
-        print(e)
+        logging.error(e)
         return html.Div(["There was an error processing this file."])
 
     return html.H5(filename), html.H6(datetime.datetime.fromtimestamp(date), id=""), df
