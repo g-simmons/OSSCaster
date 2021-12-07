@@ -32,15 +32,15 @@ def get_scaling_params(sim):
     return pd.Series(means), pd.Series(stds)
 
 
-def transform(num_month):
+def transform(num_month, id_entry):
     df = pd.read_csv(data_path + '{}.csv'.format(num_month))
     df.replace('Graduated', 1, inplace=True)
     df.replace('Retired', 0, inplace=True)
     df_dict = df.to_dict()
 
-    # print(df_dict['month'])
+    # print(df_dict[/'project'].keys())
 
-    num_project = int(len(df_dict['project']) / num_month)
+    num_project = int(len(df_dict['project']) / (num_month + 8))
 
     output = {}
     for key in df_dict.keys():
@@ -58,8 +58,10 @@ def transform(num_month):
             id2num[df_dict['project'][j]] = i
             i += 1
     # reformat data
-    for i in df_dict['project'].keys():
-        for key in df_dict.keys():
+    for i in df_dict['project'].keys():  # iterate through every entry in dictionary
+        if df_dict['month'][i] < id_entry:
+            continue
+        for key in df_dict.keys():  # every feature
             if key != 'project' and key != 'month':
                 if key == 'prob_grad':
                     if pd.isna(df_dict[key][i]):
@@ -96,11 +98,11 @@ def truncate(dict, start, end):
     return output
 
 
-def get_data(model_root, num_month):
-    dataset, num_project = transform(num_month)
+def get_data(model_root, id_entry, num_month):
+    dataset, num_project = transform(num_month, id_entry)
 
-    training_index = int(num_project * 0.6)
-    validation_index = int(num_project * 0.7)
+    training_index = int(num_project * 0.8)
+    validation_index = int(num_project * 0.9)
     test_index = num_project
 
     pickle_file = os.path.join(model_root, 'new_cancer_sim.p')
@@ -123,6 +125,8 @@ def get_data(model_root, num_month):
 
 
 if __name__ == "__main__":
-    a = transform(5)
-    b = truncate(a, 100, 200)
-    print(b)
+    a, num_project = transform(16, 9)
+    print(len(a['prob_grad']))
+    print(num_project)
+    # b = truncate(a, 100, 200)
+    # print(b)

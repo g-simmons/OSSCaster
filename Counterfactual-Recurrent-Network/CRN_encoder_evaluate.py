@@ -20,7 +20,7 @@ def fit_CRN_encoder(dataset_train, dataset_val, model_name, model_dir, hyperpara
             'num_covariates': num_covariates,
             'num_outputs': num_outputs,
             'max_sequence_length': length,
-            'num_epochs': 1}
+            'num_epochs': 100}
 
     hyperparams = dict()
     num_simulations = 50
@@ -91,6 +91,6 @@ def test_CRN_encoder(pickle_map, models_dir,
     CRN_encoder = load_trained_model(validation_processed, encoder_hyperparams_file, encoder_model_name, models_dir)
     mean_mse, mse = CRN_encoder.evaluate_predictions(test_processed)
 
-    rmse = (np.sqrt(np.mean(mse))) / 1150 * 100  # Max tumour volume = 1150
+    rmse = (np.sqrt(np.mean(mse)))  # / 1150 * 100  # Max tumour volume = 1150
 
     return rmse

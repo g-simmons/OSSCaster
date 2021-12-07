@@ -25,7 +25,7 @@ def fit_CRN_decoder(dataset_train, dataset_val, model_name, model_dir,
               'num_covariates': num_covariates,
               'num_outputs': num_outputs,
               'max_sequence_length': length,
-              'num_epochs': 1}
+              'num_epochs': 100}
 
     hyperparams = dict()
     num_simulations = 30
@@ -260,6 +260,6 @@ def test_CRN_decoder(pickle_map, max_projection_horizon, projection_horizon, mod
     not_nan = np.array([i for i in range(seq_predictions.shape[0]) if i not in nan_idx])
     mse = get_mse_at_follow_up_time(seq_predictions[not_nan], test_seq_processed['unscaled_outputs'][not_nan],
                                     test_seq_processed['active_entries'][not_nan])
-
-    rmse = np.sqrt(mse[projection_horizon - 1]) / 1150 * 100  # Max tumour volume = 1150
+    # print('rmse =', np.sqrt(mse[projection_horizon - 1]))
+    rmse = np.sqrt(mse[projection_horizon - 1]) # / 1150 * 100  # Max tumour volume = 1150
     return rmse
