@@ -1,5 +1,7 @@
 import logging
 
+from tensorflow.python.types.core import Value
+
 logging.basicConfig(level=logging.INFO)
 from math import exp
 import os
@@ -100,7 +102,27 @@ def get_model_predictions(data: pd.DataFrame):
 
 
 def get_explainability_results(data: pd.DataFrame, explanation_method: str):
+    """
+    [summary]
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame with features as columns and steps in the time series as rows.
+    explanation_method : str
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
+    if not set(data.columns) == set(DATA_COLUMNS):
+        raise ValueError
+    if not len(data) > 0:
+        raise ValueError
     n_timesteps = min(MAX_N_TIMESTEPS, len(data))
+    data = data.head(n_timesteps)
     model = load_model(MODELS_DIR / ("model_" + str(n_timesteps) + ".h5"))
     explainer = SustainabilityExplainer(
         feature_names=DATA_COLUMNS,
@@ -460,11 +482,66 @@ def _get_global_feature_importances_from_explainability_results(exp_results):
     return feature_importances
 
 
+def _update_table_data_designer(
+    list_of_contents,
+    n_clicks: int,
+    month: str,
+    feature: str,
+    value,
+    list_of_names,
+    list_of_dates,
+    explanation_method,
+    table_data,
+):
+    table_data[int(month) - 1][feature] = float(value)
+
+    raise PreventUpdate
+
+
+def _update_table_data_upload(
+    list_of_contents,
+    n_clicks: int,
+    month: str,
+    feature: str,
+    value,
+    list_of_names,
+    list_of_dates,
+    explanation_method,
+    table_data,
+):
+    data = columns = None
+
+    if list_of_contents is None:
+        raise PreventUpdate
+
+    else:
+        _, _, df = _parse_contents(
+            list_of_contents[0], list_of_names[0], list_of_dates[0]
+        )
+        data, columns = _uploaded_df_to_table_data(df)
+        df = df.set_index(df.columns[0])
+        df = df.transpose()
+        df = df[DATA_COLUMNS]
+
+        print(df.head())
+        logging.info("Calculating explainability results")
+        exp_results = get_explainability_results(df, explanation_method)
+        global_feature_importances_fig = _update_global_feature_importances(
+            _get_global_feature_importances_from_explainability_results(exp_results)
+        )
+        month_dropdown_options = [{"label": str(m), "value": str(m)} for m in range(1, len(df) + 1)]
+
+        return (
+            data,
+            columns,
+            global_feature_importances_fig,
+            month_dropdown_options,
+        )
+
+
 @app.callback(
     Output("table", "data"),
     Output("table", "columns"),
-    # Output("filename", "children"),
-    # Output("upload-time", "children"),
     Output("global-explanations-boxplot", "figure"),
     Output("data-designer-month-dropdown", "options"),
     Input("upload-data", "contents"),
@@ -493,45 +570,29 @@ def update_table(
     if ctx.triggered:
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
         if trigger_id == "data-designer-button":
-            table_data[int(month) - 1][feature] = float(value)
-
-            raise PreventUpdate
-            return (
+            return _update_table_data_designer(
+                list_of_contents,
+                n_clicks,
+                month,
+                feature,
+                value,
+                list_of_names,
+                list_of_dates,
+                explanation_method,
                 table_data,
-                columns,
-                filename,
-                date,
-                global_feature_importances_fig,
             )
-
-    data = filename = date = columns = None
-
-    if list_of_contents is None:
-        raise PreventUpdate
-
-    if list_of_contents is not None:
-        filename, date, df = _parse_contents(
-            list_of_contents[0], list_of_names[0], list_of_dates[0]
-        )
-        data, columns = _uploaded_df_to_table_data(df)
-
-    logging.info("Calculating explainability results")
-    exp_results = get_explainability_results(df, explanation_method)
-    global_feature_importances_fig = _update_global_feature_importances(
-        _get_global_feature_importances_from_explainability_results(exp_results)
-    )
-    month_dropdown_options = (
-        [{"label": str(m), "value": str(m)} for m in range(1, len(df) + 1)],
-    )
-
-    return (
-        data,
-        columns,
-        # filename,
-        # date,
-        global_feature_importances_fig,
-        month_dropdown_options,
-    )
+        else:
+            return _update_table_data_upload(
+                list_of_contents,
+                n_clicks,
+                month,
+                feature,
+                value,
+                list_of_names,
+                list_of_dates,
+                explanation_method,
+                table_data,
+            )
 
 
 @app.callback(

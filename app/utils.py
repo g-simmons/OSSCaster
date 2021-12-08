@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import base64
 import datetime
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import io
 import logging
 
@@ -17,7 +17,9 @@ def _table_data_to_df(data, columns):
     return df
 
 
-def _uploaded_df_to_table_data(df) -> List[Dict[str, str]]:
+def _uploaded_df_to_table_data(
+    df: pd.DataFrame,
+) -> Tuple[List[Dict[str, str]], List[str]]:
     """
     Parameters
     ----------
@@ -28,7 +30,9 @@ def _uploaded_df_to_table_data(df) -> List[Dict[str, str]]:
         raise ValueError("Dataframe does not contain all required columns")
     df = df.set_index(df.columns[0])
     df = df.transpose()
+    df = df[DATA_COLUMNS]
     if not set(df.columns) == set(DATA_COLUMNS):
+        print(df)
         raise ValueError
     if not len(df) > 0:
         raise ValueError
