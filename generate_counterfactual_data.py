@@ -14,6 +14,9 @@ Todo:
         trivial in terms of prediction changes.
 
 """
+from tqdm import tqdm
+import click
+
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
@@ -120,7 +123,7 @@ def generate_counterfactual_project(x, model, n_actions):
 
 
 def generate_counterfactual_data(
-        model, n_samples=10000, n_timestamps=8, n_actions=8):
+        model, n_samples=10000, n_timestamps=8, n_actions=8, save_to=None):
     """Generates a counterfactual data.
 
     Args:
@@ -141,7 +144,7 @@ def generate_counterfactual_data(
     X_train, X_test, y_train, y_test = load_data(n_timestamps)
 
     x_df_list = []
-    for i in range(n_samples):
+    for i in tqdm(range(n_samples)):
         idx = np.random.choice(len(X_train))
         x = X_train[idx]
         y = y_train[idx]
@@ -169,13 +172,27 @@ def generate_counterfactual_data(
     x_df = x_df[['project', 'month', 'status', 'prob_grad', 'action']
                 + FEATURES]
 
-    x_df.to_csv("test.csv", index=False)
+    if save_to is not None:
+        x_df.to_csv(save_to, index=False)
+
+    return x_df
+
+
+@click.command()
+@click.option('--n-timestamps', default=8, help='The number of timestamps.')
+@click.option('--n-samples', default=10000, help='The number of samples.')
+@click.option('--n-actions', default=8, help='The number of actions.')
+@click.option('--path-save')
+def main(n_timestamps, n_samples, n_actions, path_save):
+    model = load_model(f'models/model_{n_timestamps}.h5')
+
+    generate_counterfactual_data(
+        model,
+        n_samples=n_samples,
+        n_timestamps=n_timestamps,
+        n_actions=n_actions,
+        save_to=path_save)
 
 
 if __name__ == '__main__':
-    N_TIMESTEPS = 8
-
-    model = load_model(f'models/model_{N_TIMESTEPS}.h5')
-
-    generate_counterfactual_data(
-        model, n_samples=5, n_timestamps=N_TIMESTEPS, n_actions=8)
+    main()
