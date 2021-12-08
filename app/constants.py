@@ -1,8 +1,32 @@
 LINEPLOT_STYLE = {
     "width": "100%",
+    "height": "40vh",
+}
+EXPLANATIONS_PLOT_STYLE = {
+    # "width": "100%",
+    "height": "40vh",
+}
+# the style arguments for the sidebar. We use position:fixed and a fixed width
+SIDEBAR_STYLE = {
+    "position": "fixed",
+    "top": 0,
+    "left": 0,
+    "bottom": 0,
+    "width": "20rem",
+    "padding": "2rem 1rem",
+    "background-color": "#f8f9fa",
 }
 
-FIGURE_MARGINS = dict(l=20, r=20, t=20, b=20)
+# the styles for the main content position it to the right of the sidebar and
+# add some padding.
+CONTENT_STYLE = {
+    "margin-left": "20rem",
+    "margin-right": "2rem",
+    "padding": "2rem 1rem",
+}
+
+
+FIGURE_MARGINS = dict(l=0, r=0, t=0, b=0)
 
 INSTRUCTIONS = """
 ### Instructions

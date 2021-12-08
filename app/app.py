@@ -36,6 +36,9 @@ import pandas as pd
 import numpy as np
 
 from constants import (
+    EXPLANATIONS_PLOT_STYLE,
+    SIDEBAR_STYLE,
+    CONTENT_STYLE,
     LINEPLOT_STYLE,
     DATATABLE_STYLE,
     INSTRUCTIONS,
@@ -52,9 +55,10 @@ from utils import (
 )
 
 # external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
-external_stylesheets = [dbc.themes.BOOTSTRAP]
+external_stylesheets = [dbc.themes.YETI]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+server = app.server
 
 CSV_COLUMNS_AS_MONTHS = True
 
@@ -174,7 +178,7 @@ def _update_figure(data, columns):
             rows=1,
             cols=1,
         )
-
+        # confidence intervals
         fig.add_trace(
             go.Scatter(
                 x=x + x[::-1],  # x, then x reversed
@@ -192,24 +196,11 @@ def _update_figure(data, columns):
     return fig
 
 
+content = html.Div(id="page-content", style=CONTENT_STYLE)
+
+
 upload_instrs_col = dbc.Col(
     [
-        dcc.Upload(
-            id="upload-data",
-            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
-            style={
-                "width": "100%",
-                "height": "60px",
-                "lineHeight": "60px",
-                "borderWidth": "1px",
-                "borderStyle": "dashed",
-                "borderRadius": "5px",
-                "textAlign": "center",
-                "margin": "10px",
-            },
-            # Allow multiple files to be uploaded
-            multiple=True,
-        ),
         instructions,
     ],
     width=3,
@@ -236,17 +227,142 @@ tablediv = html.Div(
         ),
     ],
     style={
+        "height": "40vh",
         "overflow": "scroll",
     },
 )
+
+data_designer_month_dropdown = dbc.Row(
+    [
+        html.H5("Month"),
+        dcc.Dropdown(
+            id="data-designer-month-dropdown",
+            options=[{"label": i, "value": i} for i in range(1, len(sample_data) + 1)],
+        ),
+    ],
+)
+data_designer_feature_dropdown = dbc.Row(
+    [
+        html.H5("Feature"),
+        dcc.Dropdown(
+            id="data-designer-feature-dropdown",
+            options=[{"label": x, "value": x} for x in DATA_COLUMNS],
+        ),
+    ]
+)
+
+data_designer_value_dropdown = dbc.Row(
+    [
+        html.H5("Value"),
+        dcc.Dropdown(
+            id="data-designer-value-dropdown",
+            options=[
+                {"label": "custom", "value": "custom"},
+                {"label": "+1std", "value": "+1std"},
+                {"label": "-1std", "value": "-1std"},
+            ],
+        ),
+    ]
+)
+data_designer_value_textbox = dcc.Input(
+    id="data-designer-value-textbox", type="number", style={"width": "100%"}
+)
+data_designer_title = html.H5("Data Designer")
+data_designer_button = dbc.Button(
+    "Update Data Table",
+    color="primary",
+    className="me-1",
+    id="data-designer-button",
+    n_clicks=0,
+)
+
+update_predictions_button = dbc.Button(
+    "Update Predictions",
+    color="primary",
+    className="me-1",
+    id="update-predictions-button",
+    n_clicks=0,
+    style={"margin-top": "5px", "width": "100%"},
+)
+
+upload_button = dcc.Upload(
+    id="upload-data",
+    children=html.Div(["Upload"]),
+    style={
+        "width": "100%",
+    },
+    className="me-1 btn btn-primary",
+    multiple=True,
+)
+
+
+data_designer = html.Div(
+    [
+        # data_designer_title,
+        data_designer_month_dropdown,
+        data_designer_feature_dropdown,
+        data_designer_value_dropdown,
+        data_designer_value_textbox,
+        data_designer_button,
+    ],
+    style={
+        #     "height": "40vh",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderRadius": "5px",
+        "backgroundColor": "whitesmoke",
+        "borderColor": "darkgray",
+        "margin": "10px",
+        "padding": "10px",
+    },
+)
+
+
+explanation_method_dropdown = dcc.Dropdown(
+    id="explanation-method-dropdown",
+    options=[{"label": "lime", "value": "lime"}, {"label": "shap", "value": "shap"}],
+    value="shap",
+)
+
+
+sidebar = html.Div(
+    [
+        html.H2("OSSCaster", className="display-4"),
+        html.Hr(),
+        html.P("A prediction tool for open source software success", className="lead"),
+        dbc.Nav(
+            [
+                dbc.NavLink("Home", href="/", active="exact"),
+                dbc.NavLink("About", href="/page-1", active="exact"),
+            ],
+            vertical=True,
+            pills=True,
+        ),
+        html.Hr(),
+        upload_button,
+        data_designer,
+        explanation_method_dropdown,
+        update_predictions_button,
+    ],
+    style=SIDEBAR_STYLE,
+)
+
+
+@app.callback(
+    Output("data-designer-value-textbox", "disabled"),
+    Input("data-designer-value-dropdown", "value"),
+)
+def update_data_designer_textbox_disabled(strategy):
+    if strategy == "custom":
+        return False
+    else:
+        return True
+
 
 prediction_bignumber_header = html.H4("Predicted Probability of Graduation")
 prediction_bignumber = html.Div(id="prediction-bignumber-div", children=[])
 month_features = html.Div(id="month-features-div", children=[])
 
-explain_local_button = html.Button(
-    "Update Predictions", id="update-predictions-button", n_clicks=0
-)
 
 month_detail_view = html.Div(
     [
@@ -256,7 +372,6 @@ month_detail_view = html.Div(
                 prediction_bignumber_header,
                 prediction_bignumber,
                 month_features,
-                explain_local_button,
             ],
             id="month-detail",
         ),
@@ -264,17 +379,12 @@ month_detail_view = html.Div(
 )
 
 line_graph_col = dbc.Col(
-    [lineplot_title, lineplot, month_detail_view, tablediv],
-    width=6,
+    [
+        lineplot_title,
+        lineplot,
+    ],
+    width=7,
 )
-
-explanation_method_title = html.H3("Explanation Method")
-explanation_method_dropdown = dcc.Dropdown(
-    id="explanation-method-dropdown",
-    options=[{"label": "lime", "value": "lime"}, {"label": "shap", "value": "shap"}],
-    value="shap",
-)
-
 global_explanations = html.Div(
     [
         html.H3("Global Explanations"),
@@ -283,6 +393,7 @@ global_explanations = html.Div(
             figure=_update_global_feature_importances(
                 sample_feature_importances_global
             ),
+            style=EXPLANATIONS_PLOT_STYLE,
         ),
     ],
 )
@@ -299,24 +410,47 @@ all_feature_importances = html.P(id="all-feature-importances")
 
 explanations_col = dbc.Col(
     children=[
-        explanation_method_title,
-        explanation_method_dropdown,
-        global_explanations,
-        local_explanations,
+        dbc.Row(
+            [
+                global_explanations,
+                # local_explanations,
+            ]
+        ),
         all_feature_importances,
     ],
-    width=3,
+    width=5,
 )
-
-app.layout = html.Div(
+home_content = [
     dbc.Row(
         [
-            upload_instrs_col,
             line_graph_col,
             explanations_col,
+        ],
+        style={"height": "50vh"},
+    ),
+    tablediv,
+    # dbc.Row([tablediv]),
+]
+
+content = html.Div(id="page-content", style=CONTENT_STYLE)
+
+app.layout = html.Div([dcc.Location(id="url"), sidebar, content])
+
+
+@app.callback(Output("page-content", "children"), [Input("url", "pathname")])
+def render_page_content(pathname):
+    if pathname == "/":
+        return home_content
+    elif pathname == "/page-1":
+        return html.Div([upload_instrs_col])
+    # If the user tries to reach a different page, return a 404 message
+    return dbc.Jumbotron(
+        [
+            html.H1("404: Not found", className="text-danger"),
+            html.Hr(),
+            html.P(f"The pathname {pathname} was not recognised..."),
         ]
     )
-)
 
 
 def _get_global_feature_importances_from_explainability_results(exp_results):
@@ -329,15 +463,47 @@ def _get_global_feature_importances_from_explainability_results(exp_results):
 @app.callback(
     Output("table", "data"),
     Output("table", "columns"),
-    Output("filename", "children"),
-    Output("upload-time", "children"),
+    # Output("filename", "children"),
+    # Output("upload-time", "children"),
     Output("global-explanations-boxplot", "figure"),
+    Output("data-designer-month-dropdown", "options"),
     Input("upload-data", "contents"),
+    Input("data-designer-button", "n_clicks"),
+    State("data-designer-month-dropdown", "value"),
+    State("data-designer-feature-dropdown", "value"),
+    State("data-designer-value-textbox", "value"),
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
     State("explanation-method-dropdown", "value"),
+    State("table", "data"),
 )
-def update_table(list_of_contents, list_of_names, list_of_dates, explanation_method):
+def update_table(
+    list_of_contents,
+    n_clicks: int,
+    month: str,
+    feature: str,
+    value,
+    list_of_names,
+    list_of_dates,
+    explanation_method,
+    table_data,
+):
+    ctx = dash.callback_context
+
+    if ctx.triggered:
+        trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        if trigger_id == "data-designer-button":
+            table_data[int(month) - 1][feature] = float(value)
+
+            raise PreventUpdate
+            return (
+                table_data,
+                columns,
+                filename,
+                date,
+                global_feature_importances_fig,
+            )
+
     data = filename = date = columns = None
 
     if list_of_contents is None:
@@ -354,14 +520,27 @@ def update_table(list_of_contents, list_of_names, list_of_dates, explanation_met
     global_feature_importances_fig = _update_global_feature_importances(
         _get_global_feature_importances_from_explainability_results(exp_results)
     )
+    month_dropdown_options = (
+        [{"label": str(m), "value": str(m)} for m in range(1, len(df) + 1)],
+    )
 
-    return data, columns, filename, date, global_feature_importances_fig
+    return (
+        data,
+        columns,
+        # filename,
+        # date,
+        global_feature_importances_fig,
+        month_dropdown_options,
+    )
 
 
 @app.callback(
-    Output("lineplot", "figure"), Input("table", "data"), Input("table", "columns")
+    Output("lineplot", "figure"),
+    Input("table", "data"),
+    Input("table", "columns"),
+    Input("update-predictions-button", "n_clicks"),
 )
-def update_figure(data, columns):
+def update_figure(data, columns, n_clicks):
     if data is None:
         raise PreventUpdate
     return _update_figure(data, columns)
@@ -399,48 +578,48 @@ def _get_month_feature_importances(figdata, month):
     return feature_importances
 
 
-@app.callback(
-    Output("prediction-bignumber-div", "children"),
-    Output("month-features-div", "children"),
-    Output("local-explanations-barplot", "figure"),
-    Input("lineplot", "clickData"),
-    Input("lineplot", "figure"),
-    Input("global-explanations-boxplot", "figure"),
-    Input("update-predictions-button", "n_clicks"),
-)
-def update_month_features_on_click(
-    click_data, lineplot_fig, global_explanations_fig, _
-):
-    if click_data is None:
-        raise PreventUpdate
-    month = click_data["points"][0]["pointNumber"]
-    month_for_display = month + 1
-    month_success_prob = _get_month_success_prob(lineplot_fig["data"], month)
-    month_features = _get_month_features(lineplot_fig["data"], month)
+# @app.callback(
+#     Output("prediction-bignumber-div", "children"),
+#     # Output("month-features-div", "children"),
+#     Output("local-explanations-barplot", "figure"),
+#     Input("lineplot", "clickData"),
+#     Input("lineplot", "figure"),
+#     Input("global-explanations-boxplot", "figure"),
+#     Input("update-predictions-button", "n_clicks"),
+# )
+# def update_month_features_on_click(
+#     click_data, lineplot_fig, global_explanations_fig, _
+# ):
+#     if click_data is None:
+#         raise PreventUpdate
+#     month = click_data["points"][0]["pointNumber"]
+#     month_for_display = month + 1
+#     month_success_prob = _get_month_success_prob(lineplot_fig["data"], month)
+#     month_features = _get_month_features(lineplot_fig["data"], month)
 
-    # if user clicks a month that is higher index than the number of months used in prediction,
-    # feature importances will not be available, so we populate the graph with zeros.
-    # TODO: inform user that feature importances are not available for this month/hide the graph etc.
-    if month >= len(global_explanations_fig["data"][0]["x"]):
-        local_explanations_fig = _update_local_feature_importances(
-            pd.Series(index=DATA_COLUMNS, data=np.zeros(len(DATA_COLUMNS)))
-        )
-    else:
-        month_feature_importances = _get_month_feature_importances(
-            global_explanations_fig["data"], month
-        )
-        local_explanations_fig = _update_local_feature_importances(
-            pd.Series(month_feature_importances)
-        )
+#     # if user clicks a month that is higher index than the number of months used in prediction,
+#     # feature importances will not be available, so we populate the graph with zeros.
+#     # TODO: inform user that feature importances are not available for this month/hide the graph etc.
+#     if month >= len(global_explanations_fig["data"][0]["x"]):
+#         local_explanations_fig = _update_local_feature_importances(
+#             pd.Series(index=DATA_COLUMNS, data=np.zeros(len(DATA_COLUMNS)))
+#         )
+#     else:
+#         month_feature_importances = _get_month_feature_importances(
+#             global_explanations_fig["data"], month
+#         )
+#         local_explanations_fig = _update_local_feature_importances(
+#             pd.Series(month_feature_importances)
+#         )
 
-    return (
-        html.H1(str(month_success_prob)),
-        html.P(
-            ", ".join([f"{k}: {v}" for k, v in month_features.items()]),
-            style=MONTH_FEATURES_STYLE,
-        ),
-        local_explanations_fig,
-    )
+#     return (
+#         html.H1(str(month_success_prob)),
+#         # html.P(
+#         #     ", ".join([f"{k}: {v}" for k, v in month_features.items()]),
+#         #     style=MONTH_FEATURES_STYLE,
+#         # ),
+#         # local_explanations_fig,
+# #
 
 
 if __name__ == "__main__":
