@@ -172,7 +172,7 @@ def _update_figure(data, columns):
         shared_yaxes=True,
         vertical_spacing=0.01,
     )
-    fig.update_yaxes(title_text="Success Probability", row=1, col=1)
+    fig.update_yaxes(title_text="Success Probability", row=1, col=1, range=[0, 1])
     fig.update_yaxes(title_text="Project History", row=2, col=1)
     fig.update_xaxes(title_text="Month", row=[1, 2], col=1)
 
@@ -492,10 +492,17 @@ def _update_table_data_designer(
     list_of_dates,
     explanation_method,
     table_data,
+    table_columns,
+    boxplot_fig,
+    month_dropdown_options,
 ):
     table_data[int(month) - 1][feature] = float(value)
-
-    raise PreventUpdate
+    return (
+        table_data,
+        table_columns,
+        boxplot_fig,
+        month_dropdown_options,
+    )
 
 
 def _update_table_data_upload(
@@ -508,6 +515,9 @@ def _update_table_data_upload(
     list_of_dates,
     explanation_method,
     table_data,
+    table_columns,
+    boxplot_fig,
+    month_dropdown_options,
 ):
     data = columns = None
 
@@ -523,16 +533,18 @@ def _update_table_data_upload(
         df = df.transpose()
         df = df[DATA_COLUMNS]
 
-        print(df.head())
         logging.info("Calculating explainability results")
         exp_results = get_explainability_results(df, explanation_method)
         global_feature_importances_fig = _update_global_feature_importances(
             _get_global_feature_importances_from_explainability_results(exp_results)
         )
-        month_dropdown_options = [{"label": str(m), "value": str(m)} for m in range(1, len(df) + 1)]
+        month_dropdown_options = [
+            {"label": str(m), "value": str(m)} for m in range(1, len(df) + 1)
+        ]
 
         return (
             data,
+            table_columns,
             columns,
             global_feature_importances_fig,
             month_dropdown_options,
@@ -553,6 +565,9 @@ def _update_table_data_upload(
     State("upload-data", "last_modified"),
     State("explanation-method-dropdown", "value"),
     State("table", "data"),
+    State("table", "columns"),
+    State("global-explanations-boxplot", "figure"),
+    State("data-designer-month-dropdown", "options"),
 )
 def update_table(
     list_of_contents,
@@ -564,6 +579,9 @@ def update_table(
     list_of_dates,
     explanation_method,
     table_data,
+    table_columns,
+    boxplot_fig,
+    month_dropdown_options,
 ):
     ctx = dash.callback_context
 
@@ -580,6 +598,9 @@ def update_table(
                 list_of_dates,
                 explanation_method,
                 table_data,
+                table_columns,
+                boxplot_fig,
+                month_dropdown_options,
             )
         else:
             return _update_table_data_upload(
@@ -592,13 +613,18 @@ def update_table(
                 list_of_dates,
                 explanation_method,
                 table_data,
+                table_columns,
+                boxplot_fig,
+                month_dropdown_options,
             )
+    else:
+        raise PreventUpdate
 
 
 @app.callback(
     Output("lineplot", "figure"),
-    Input("table", "data"),
-    Input("table", "columns"),
+    State("table", "data"),
+    State("table", "columns"),
     Input("update-predictions-button", "n_clicks"),
 )
 def update_figure(data, columns, n_clicks):
