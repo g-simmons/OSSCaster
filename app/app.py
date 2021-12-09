@@ -296,9 +296,16 @@ data_designer_value_textbox = dcc.Input(
 data_designer_title = html.H5("Data Designer")
 data_designer_button = dbc.Button(
     "Update Data Table",
-    color="primary",
+    color="secondary",
     className="me-1",
     id="data-designer-button",
+    n_clicks=0,
+)
+add_row_button = dbc.Button(
+    "Add Row",
+    color="secondary",
+    className="me-1",
+    id="add-row-button",
     n_clicks=0,
 )
 
@@ -330,6 +337,7 @@ data_designer = html.Div(
         data_designer_value_dropdown,
         data_designer_value_textbox,
         data_designer_button,
+        add_row_button,
     ],
     style={
         #     "height": "40vh",
@@ -375,14 +383,19 @@ sidebar = html.Div(
 
 
 @app.callback(
+    Output("data-designer-value-textbox", "value"),
     Output("data-designer-value-textbox", "disabled"),
     Input("data-designer-value-dropdown", "value"),
+    State("data-designer-month-dropdown", "value"),
+    State("data-designer-feature-dropdown", "value"),
+    State("table", "data"),
 )
-def update_data_designer_textbox_disabled(strategy):
+def update_data_designer_textbox_disabled(strategy, month, feature, table_data):
     if strategy == "custom":
-        return False
+        return None, False
     else:
-        return True
+        feature_val = table_data[month - 1][feature]
+        return feature_val, True
 
 
 prediction_bignumber_header = html.H4("Predicted Probability of Graduation")
@@ -487,6 +500,7 @@ def _update_table_lineplot_click(
     explanation_method,
     table_data,
     table_columns,
+    style_data_conditional,
     boxplot_fig,
     lineplot_fig,
     month_dropdown_options,
@@ -542,14 +556,30 @@ def _update_table_data_designer(
     explanation_method,
     table_data,
     table_columns,
+    style_data_conditional,
     boxplot_fig,
     lineplot_fig,
     month_dropdown_options,
 ):
     table_data[int(month) - 1][feature] = float(value)
+    if style_data_conditional is None:
+        style_data_conditional = []
+
+    style_data_conditional += [
+        {
+            "if": {
+                "column_id": feature,
+                "row_index": int(month) - 1,
+            },
+            "backgroundColor": "dodgerblue",
+            "color": "white",
+        }
+    ]
+
     return (
         table_data,
         table_columns,
+        style_data_conditional,
         boxplot_fig,
         month_dropdown_options,
     )
@@ -567,6 +597,7 @@ def _update_table_data_upload(
     explanation_method,
     table_data,
     table_columns,
+    style_data_conditional,
     boxplot_fig,
     lineplot_fig,
     month_dropdown_options,
@@ -598,32 +629,13 @@ def _update_table_data_upload(
         return (
             data,
             columns,
+            style_data_conditional,
             global_feature_importances_fig,
             month_dropdown_options,
         )
 
 
-@app.callback(
-    Output("table", "data"),
-    Output("table", "columns"),
-    Output("global-explanations-boxplot", "figure"),
-    Output("data-designer-month-dropdown", "options"),
-    Input("lineplot", "clickData"),
-    Input("upload-data", "contents"),
-    Input("data-designer-button", "n_clicks"),
-    State("data-designer-month-dropdown", "value"),
-    State("data-designer-feature-dropdown", "value"),
-    State("data-designer-value-textbox", "value"),
-    State("upload-data", "filename"),
-    State("upload-data", "last_modified"),
-    State("explanation-method-dropdown", "value"),
-    State("table", "data"),
-    State("table", "columns"),
-    State("global-explanations-boxplot", "figure"),
-    State("lineplot", "figure"),
-    State("data-designer-month-dropdown", "options"),
-)
-def update_table(
+def _update_data_table_add_row(
     click_data,
     list_of_contents,
     n_clicks: int,
@@ -635,6 +647,61 @@ def update_table(
     explanation_method,
     table_data,
     table_columns,
+    style_data_conditional,
+    boxplot_fig,
+    lineplot_fig,
+    month_dropdown_options,
+):
+
+    table_data.append(
+        {c["id"]: table_data[len(table_data) - 1][c["id"]] for c in table_columns}
+    )
+    return (
+        table_data,
+        table_columns,
+        style_data_conditional,
+        boxplot_fig,
+        month_dropdown_options,
+    )
+
+
+@app.callback(
+    Output("table", "data"),
+    Output("table", "columns"),
+    Output("table", "style_data_conditional"),
+    Output("global-explanations-boxplot", "figure"),
+    Output("data-designer-month-dropdown", "options"),
+    Input("lineplot", "clickData"),
+    Input("upload-data", "contents"),
+    Input("data-designer-button", "n_clicks"),
+    Input("add-row-button", "n_clicks"),
+    State("data-designer-month-dropdown", "value"),
+    State("data-designer-feature-dropdown", "value"),
+    State("data-designer-value-textbox", "value"),
+    State("upload-data", "filename"),
+    State("upload-data", "last_modified"),
+    State("explanation-method-dropdown", "value"),
+    State("table", "data"),
+    State("table", "columns"),
+    State("table", "style_data_conditional"),
+    State("global-explanations-boxplot", "figure"),
+    State("lineplot", "figure"),
+    State("data-designer-month-dropdown", "options"),
+)
+def update_table(
+    click_data,
+    list_of_contents,
+    n_clicks: int,
+    add_row_n_clicks: int,
+    month: str,
+    feature: str,
+    value,
+    list_of_names,
+    list_of_dates,
+    explanation_method,
+    table_data,
+    table_columns,
+    style_data_conditional,
     boxplot_fig,
     lineplot_fig,
     month_dropdown_options,
@@ -643,8 +710,9 @@ def update_table(
 
     if ctx.triggered:
         trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
-        if trigger_id == "data-designer-button":
-            return _update_table_data_designer(
+        if trigger_id == "add-row-button":
+            return _update_data_table_add_row(
+                click_data,
                 list_of_contents,
                 n_clicks,
                 month,
@@ -655,7 +723,27 @@ def update_table(
                 explanation_method,
                 table_data,
                 table_columns,
+                style_data_conditional,
                 boxplot_fig,
+                lineplot_fig,
+                month_dropdown_options,
+            )
+        if trigger_id == "data-designer-button":
+            return _update_table_data_designer(
+                click_data,
+                list_of_contents,
+                n_clicks,
+                month,
+                feature,
+                value,
+                list_of_names,
+                list_of_dates,
+                explanation_method,
+                table_data,
+                table_columns,
+                style_data_conditional,
+                boxplot_fig,
+                lineplot_fig,
                 month_dropdown_options,
             )
         elif trigger_id == "lineplot":
@@ -671,6 +759,7 @@ def update_table(
                 explanation_method,
                 table_data,
                 table_columns,
+                style_data_conditional,
                 boxplot_fig,
                 lineplot_fig,
                 month_dropdown_options,
@@ -688,6 +777,7 @@ def update_table(
                 explanation_method,
                 table_data,
                 table_columns,
+                style_data_conditional,
                 boxplot_fig,
                 lineplot_fig,
                 month_dropdown_options,
