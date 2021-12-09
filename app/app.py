@@ -218,20 +218,6 @@ def _update_figure(data, columns):
             rows=1,
             cols=1,
         )
-        # # confidence intervals
-        # fig.add_trace(
-        #     go.Scatter(
-        #         x=x + x[::-1],  # x, then x reversed
-        #         y=preds_upper + preds_lower[::-1],  # upper, then lower reversed
-        #         fill="toself",
-        #         fillcolor="rgba(0,100,80,0.2)",
-        #         line=dict(color="rgba(255,255,255,0)"),
-        #         hoverinfo="skip",
-        #         showlegend=False,
-        #     ),
-        #     row=1,
-        #     col=1,
-        # )
     fig.update_layout(margin=FIGURE_MARGINS)
     return fig
 
@@ -427,7 +413,7 @@ line_graph_col = dbc.Col(
 )
 global_explanations = html.Div(
     [
-        html.H3("Global Explanations"),
+        html.H3("Feature Importances"),
         dcc.Graph(
             id="global-explanations-boxplot",
             figure=_update_global_feature_importances(
@@ -437,15 +423,6 @@ global_explanations = html.Div(
         ),
     ],
 )
-# local_explanations = html.Div(
-#     [
-#         html.H3("Local Explanations"),
-#         dcc.Graph(
-#             id="local-explanations-barplot",
-#             figure=_update_local_feature_importances(sample_feature_importances_local),
-#         ),
-#     ],
-# )
 all_feature_importances = html.P(id="all-feature-importances")
 
 explanations_col = dbc.Col(
@@ -453,7 +430,6 @@ explanations_col = dbc.Col(
         dbc.Row(
             [
                 global_explanations,
-                # local_explanations,
             ]
         ),
         all_feature_importances,
@@ -469,7 +445,6 @@ home_content = [
         style={"height": "50vh"},
     ),
     tablediv,
-    # dbc.Row([tablediv]),
 ]
 
 content = html.Div(id="page-content", style=CONTENT_STYLE)
@@ -765,50 +740,6 @@ def _get_month_feature_importances(figdata, month):
                 continue
             feature_importances[trace["name"]] = trace["x"][month]
     return feature_importances
-
-
-# @app.callback(
-#     Output("prediction-bignumber-div", "children"),
-#     # Output("month-features-div", "children"),
-#     Output("local-explanations-barplot", "figure"),
-#     Input("lineplot", "clickData"),
-#     Input("lineplot", "figure"),
-#     Input("global-explanations-boxplot", "figure"),
-#     Input("update-predictions-button", "n_clicks"),
-# )
-# def update_month_features_on_click(
-#     click_data, lineplot_fig, global_explanations_fig, _
-# ):
-#     if click_data is None:
-#         raise PreventUpdate
-#     month = click_data["points"][0]["pointNumber"]
-#     month_for_display = month + 1
-#     month_success_prob = _get_month_success_prob(lineplot_fig["data"], month)
-#     month_features = _get_month_features(lineplot_fig["data"], month)
-
-#     # if user clicks a month that is higher index than the number of months used in prediction,
-#     # feature importances will not be available, so we populate the graph with zeros.
-#     # TODO: inform user that feature importances are not available for this month/hide the graph etc.
-#     if month >= len(global_explanations_fig["data"][0]["x"]):
-#         local_explanations_fig = _update_local_feature_importances(
-#             pd.Series(index=DATA_COLUMNS, data=np.zeros(len(DATA_COLUMNS)))
-#         )
-#     else:
-#         month_feature_importances = _get_month_feature_importances(
-#             global_explanations_fig["data"], month
-#         )
-#         local_explanations_fig = _update_local_feature_importances(
-#             pd.Series(month_feature_importances)
-#         )
-
-#     return (
-#         html.H1(str(month_success_prob)),
-#         # html.P(
-#         #     ", ".join([f"{k}: {v}" for k, v in month_features.items()]),
-#         #     style=MONTH_FEATURES_STYLE,
-#         # ),
-#         # local_explanations_fig,
-# #
 
 
 if __name__ == "__main__":
