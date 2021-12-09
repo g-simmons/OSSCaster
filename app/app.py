@@ -1,4 +1,5 @@
 import logging
+from matplotlib.pyplot import box
 
 from tensorflow.python.types.core import Value
 
@@ -38,6 +39,7 @@ import pandas as pd
 import numpy as np
 
 from constants import (
+    LOCAL_MARKER_COLOR,
     EXPLANATIONS_PLOT_STYLE,
     SIDEBAR_STYLE,
     CONTENT_STYLE,
@@ -55,6 +57,11 @@ from utils import (
     _get_sample_feature_importances_local,
     _get_sample_feature_importances_global,
 )
+
+DEFAULT_MONTH_FEATURE_IMPORTANCES = pd.Series(
+    index=DATA_COLUMNS, data=np.zeros(len(DATA_COLUMNS))
+)
+
 
 # external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 external_stylesheets = [dbc.themes.YETI]
@@ -139,10 +146,21 @@ def get_explainability_results(data: pd.DataFrame, explanation_method: str):
         return results
 
 
-def _update_global_feature_importances(df: pd.DataFrame):
+def _update_global_feature_importances(
+    feature_importances_all: pd.DataFrame, feature_importances_local: pd.Series
+):
     fig = go.Figure()
-    for col in df.columns:
-        fig.add_trace(go.Box(x=df[col], name=col))
+    for col in feature_importances_all.columns:
+        fig.add_trace(go.Box(x=feature_importances_all[col], name=col))
+        if feature_importances_local[col] != 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=[feature_importances_local[col]],
+                    y=[col],
+                    name=col,
+                    marker_color=LOCAL_MARKER_COLOR,
+                )
+            )
     fig.update_layout(showlegend=False)
     fig.update_layout(margin=FIGURE_MARGINS)
     return fig
@@ -413,21 +431,21 @@ global_explanations = html.Div(
         dcc.Graph(
             id="global-explanations-boxplot",
             figure=_update_global_feature_importances(
-                sample_feature_importances_global
+                sample_feature_importances_global, DEFAULT_MONTH_FEATURE_IMPORTANCES
             ),
             style=EXPLANATIONS_PLOT_STYLE,
         ),
     ],
 )
-local_explanations = html.Div(
-    [
-        html.H3("Local Explanations"),
-        dcc.Graph(
-            id="local-explanations-barplot",
-            figure=_update_local_feature_importances(sample_feature_importances_local),
-        ),
-    ],
-)
+# local_explanations = html.Div(
+#     [
+#         html.H3("Local Explanations"),
+#         dcc.Graph(
+#             id="local-explanations-barplot",
+#             figure=_update_local_feature_importances(sample_feature_importances_local),
+#         ),
+#     ],
+# )
 all_feature_importances = html.P(id="all-feature-importances")
 
 explanations_col = dbc.Col(
@@ -482,7 +500,8 @@ def _get_global_feature_importances_from_explainability_results(exp_results):
     return feature_importances
 
 
-def _update_table_data_designer(
+def _update_table_lineplot_click(
+    click_data,
     list_of_contents,
     n_clicks: int,
     month: str,
@@ -494,6 +513,62 @@ def _update_table_data_designer(
     table_data,
     table_columns,
     boxplot_fig,
+    lineplot_fig,
+    month_dropdown_options,
+):
+    if click_data is None:
+        raise PreventUpdate
+    month = click_data["points"][0]["pointNumber"]
+    logging.info(f"Clicked on month {month}")
+    # month_for_display = month + 1
+    # month_success_prob = _get_month_success_prob(lineplot_fig["data"], month)
+    # month_features = _get_month_features(lineplot_fig["data"], month)
+
+    # if user clicks a month that is higher index than the number of months used in prediction,
+    # feature importances will not be available, so we populate the graph with zeros.
+    # TODO: inform user that feature importances are not available for this month/hide the graph etc.
+    if month >= len(boxplot_fig["data"][0]["x"]):
+        month_feature_importances = DEFAULT_MONTH_FEATURE_IMPORTANCES
+    else:
+        month_feature_importances = _get_month_feature_importances(
+            boxplot_fig["data"], month
+        )
+    fig = go.Figure(boxplot_fig.copy())
+    data = [trace for trace in fig["data"] if trace["type"] == "box"]
+    fig["data"] = data
+    for col in DATA_COLUMNS:
+        if month_feature_importances[col] != 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=[month_feature_importances[col]],
+                    y=[col],
+                    name=col,
+                    marker_color=LOCAL_MARKER_COLOR,
+                )
+            )
+    boxplot_fig = fig
+    return (
+        table_data,
+        table_columns,
+        boxplot_fig,
+        month_dropdown_options,
+    )
+
+
+def _update_table_data_designer(
+    click_data,
+    list_of_contents,
+    n_clicks: int,
+    month: str,
+    feature: str,
+    value,
+    list_of_names,
+    list_of_dates,
+    explanation_method,
+    table_data,
+    table_columns,
+    boxplot_fig,
+    lineplot_fig,
     month_dropdown_options,
 ):
     table_data[int(month) - 1][feature] = float(value)
@@ -506,6 +581,7 @@ def _update_table_data_designer(
 
 
 def _update_table_data_upload(
+    click_data,
     list_of_contents,
     n_clicks: int,
     month: str,
@@ -517,6 +593,7 @@ def _update_table_data_upload(
     table_data,
     table_columns,
     boxplot_fig,
+    lineplot_fig,
     month_dropdown_options,
 ):
     data = columns = None
@@ -536,7 +613,8 @@ def _update_table_data_upload(
         logging.info("Calculating explainability results")
         exp_results = get_explainability_results(df, explanation_method)
         global_feature_importances_fig = _update_global_feature_importances(
-            _get_global_feature_importances_from_explainability_results(exp_results)
+            _get_global_feature_importances_from_explainability_results(exp_results),
+            DEFAULT_MONTH_FEATURE_IMPORTANCES,
         )
         month_dropdown_options = [
             {"label": str(m), "value": str(m)} for m in range(1, len(df) + 1)
@@ -555,6 +633,7 @@ def _update_table_data_upload(
     Output("table", "columns"),
     Output("global-explanations-boxplot", "figure"),
     Output("data-designer-month-dropdown", "options"),
+    Input("lineplot", "clickData"),
     Input("upload-data", "contents"),
     Input("data-designer-button", "n_clicks"),
     State("data-designer-month-dropdown", "value"),
@@ -566,9 +645,11 @@ def _update_table_data_upload(
     State("table", "data"),
     State("table", "columns"),
     State("global-explanations-boxplot", "figure"),
+    State("lineplot", "figure"),
     State("data-designer-month-dropdown", "options"),
 )
 def update_table(
+    click_data,
     list_of_contents,
     n_clicks: int,
     month: str,
@@ -580,6 +661,7 @@ def update_table(
     table_data,
     table_columns,
     boxplot_fig,
+    lineplot_fig,
     month_dropdown_options,
 ):
     ctx = dash.callback_context
@@ -601,8 +683,9 @@ def update_table(
                 boxplot_fig,
                 month_dropdown_options,
             )
-        else:
-            return _update_table_data_upload(
+        elif trigger_id == "lineplot":
+            return _update_table_lineplot_click(
+                click_data,
                 list_of_contents,
                 n_clicks,
                 month,
@@ -614,6 +697,24 @@ def update_table(
                 table_data,
                 table_columns,
                 boxplot_fig,
+                lineplot_fig,
+                month_dropdown_options,
+            )
+        else:
+            return _update_table_data_upload(
+                click_data,
+                list_of_contents,
+                n_clicks,
+                month,
+                feature,
+                value,
+                list_of_names,
+                list_of_dates,
+                explanation_method,
+                table_data,
+                table_columns,
+                boxplot_fig,
+                lineplot_fig,
                 month_dropdown_options,
             )
     else:
@@ -654,6 +755,8 @@ def _get_month_feature_importances(figdata, month):
     feature_importances = {}
     for trace in figdata:
         if "name" in trace.keys():
+            if trace["type"] == "scatter":
+                continue
             if month >= len(trace["x"]):
                 raise ValueError(
                     "Selected month is greater than the number of months used in prediction"

@@ -2,6 +2,7 @@ LINEPLOT_STYLE = {
     "width": "100%",
     "height": "40vh",
 }
+LOCAL_MARKER_COLOR = "DarkSlateGrey"
 EXPLANATIONS_PLOT_STYLE = {
     # "width": "100%",
     "height": "40vh",
