@@ -34,43 +34,53 @@ def reshape_y(seq, n_timesteps):
 
 
 if __name__ == "__main__":
-    RANDOM_STATE = 42
+    # RANDOM_STATE = 42
 
-    for n_timesteps in range(1, 31):
-        df = pd.read_csv(
-            f"Sustainability_Analysis/Reformat_data/{n_timesteps}.csv")
-        df.replace('Graduated', '1', inplace=True)
-        df.replace('Retired', '0', inplace=True)
+    # # for n_timesteps in range(1, 31):
+    # for n_timesteps in range(4, 5):
+    #     # df = pd.read_csv(
+    #     #     f"Sustainability_Analysis/Reformat_data/{n_timesteps}.csv")
+    #     df = pd.read_csv("../../Downloads/4.csv")
+    #     # df.replace('Graduated', '1', inplace=True)
+    #     # df.replace('Retired', '0', inplace=True)
 
-        data_columns = [
-            'active_devs', 'num_commits', 'num_files', 'num_emails',
-            'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
-            'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
-            'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
-        target_columns = ['status']
+    #     data_columns = [
+    #         'active_devs', 'num_commits', 'num_files', 'num_emails',
+    #         'c_percentage', 'e_percentage', 'inactive_c', 'inactive_e',
+    #         'c_nodes', 'c_edges', 'c_c_coef', 'c_mean_degree', 'c_long_tail',
+    #         'e_nodes', 'e_edges', 'e_c_coef', 'e_mean_degree', 'e_long_tail']
+    #     target_columns = ['status']
 
-        scaler = MinMaxScaler(feature_range=(-1, 1))
-        X_original = scaler.fit_transform(df[data_columns].values)
-        X = reshape_X(X_original, n_timesteps=n_timesteps)
-        y = reshape_y(df[target_columns].values, n_timesteps=n_timesteps)
-        y = to_categorical(y.astype(int))
+    #     scaler = MinMaxScaler(feature_range=(-1, 1))
+    #     X_original = scaler.fit_transform(df[data_columns].values)
+    #     X = reshape_X(X_original, n_timesteps=n_timesteps)
+    #     y = reshape_y(df[target_columns].values, n_timesteps=n_timesteps)
+    #     y = to_categorical(y.astype(int))
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, shuffle=True, random_state=RANDOM_STATE)
+    #     X_train, X_test, y_train, y_test = train_test_split(
+    #         X, y, test_size=0.2, shuffle=True, random_state=RANDOM_STATE)
 
-        model = Sequential()
-        model.add(LSTM(64, input_shape=(n_timesteps, len(data_columns))))
-        model.add(Dropout(0.3))
-        model.add(Dense(2, activation='softmax'))
-        model.compile(
-            loss='binary_crossentropy',
-            optimizer=Adam(),
-            metrics=['accuracy'])
-        model.fit(
-            X_train,
-            y_train,
-            batch_size=30,
-            epochs=100,
-            validation_data=(X_test, y_test),
-            verbose=1)
-        model.save('models/model_' + str(n_timesteps) + '.h5')
+    #     model = Sequential()
+    #     model.add(LSTM(64, input_shape=(n_timesteps, len(data_columns))))
+    #     model.add(Dropout(0.3))
+    #     model.add(Dense(2, activation='softmax'))
+    #     model.compile(
+    #         loss='binary_crossentropy',
+    #         optimizer=Adam(),
+    #         metrics=['accuracy'])
+    #     history = model.fit(
+    #         X_train,
+    #         y_train,
+    #         batch_size=30,
+    #         epochs=100,
+    #         validation_data=(X_test, y_test),
+    #         verbose=1)
+    #     model.save('models/model_' + str(n_timesteps) + '_ctf' + '.h5')
+    #     np.save('models/history_4_ctf.h5', history.history)
+
+    model = load_model('models/model_4_ctf' + '.h5')
+    history = np.load('models/history_4_ctf.h5.npy', allow_pickle=True).item()
+
+    train_mean, train_std = np.mean(history['accuracy']), np.std(history['accuracy'])
+    val_mean, val_std = np.mean(history['val_accuracy']), np.std(history['val_accuracy'])
+    print(train_mean, train_std, val_mean, val_std)
