@@ -78,8 +78,8 @@ def get_model_predictions(data: pd.DataFrame):
     logging.debug(f"max_timesteps: {max_timesteps}")
     success_probabilities = []
     for i in range(1, max_timesteps):
-        # n_timesteps = i + 1
-        n_timesteps = 8  # TODO: hardcoded because I only have the 8 month model
+        n_timesteps = i + 1
+        # n_timesteps = 8  # TODO: hardcoded because I only have the 8 month model
         logging.info(f"Trying to get predictions for {n_timesteps} timesteps")
         data_trunc = data.head(n_timesteps)
         model_path = MODELS_DIR / ("model_" + str(n_timesteps) + ".h5")
@@ -200,20 +200,20 @@ def _update_figure(data, columns):
             rows=1,
             cols=1,
         )
-        # confidence intervals
-        fig.add_trace(
-            go.Scatter(
-                x=x + x[::-1],  # x, then x reversed
-                y=preds_upper + preds_lower[::-1],  # upper, then lower reversed
-                fill="toself",
-                fillcolor="rgba(0,100,80,0.2)",
-                line=dict(color="rgba(255,255,255,0)"),
-                hoverinfo="skip",
-                showlegend=False,
-            ),
-            row=1,
-            col=1,
-        )
+        # # confidence intervals
+        # fig.add_trace(
+        #     go.Scatter(
+        #         x=x + x[::-1],  # x, then x reversed
+        #         y=preds_upper + preds_lower[::-1],  # upper, then lower reversed
+        #         fill="toself",
+        #         fillcolor="rgba(0,100,80,0.2)",
+        #         line=dict(color="rgba(255,255,255,0)"),
+        #         hoverinfo="skip",
+        #         showlegend=False,
+        #     ),
+        #     row=1,
+        #     col=1,
+        # )
     fig.update_layout(margin=FIGURE_MARGINS)
     return fig
 
@@ -544,7 +544,6 @@ def _update_table_data_upload(
 
         return (
             data,
-            table_columns,
             columns,
             global_feature_importances_fig,
             month_dropdown_options,
